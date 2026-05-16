@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useFinanzasStore, Movement, Account } from "@/lib/store";
 
 interface AccountDetailModalProps {
@@ -9,7 +9,7 @@ interface AccountDetailModalProps {
 }
 
 const AccountDetailModal: React.FC<AccountDetailModalProps> = ({ accountId, onClose }) => {
-  const { accounts, movements, getAccountBalance } = useFinanzasStore();
+  const { accounts, movements, getAccountBalance, getBalancesByGroup } = useFinanzasStore();
   const [account, setAccount] = useState<Account | undefined>(undefined);
   const [filteredMovements, setFilteredMovements] = useState<Movement[]>([]);
   const [startDate, setStartDate] = useState("");
@@ -68,6 +68,12 @@ const AccountDetailModal: React.FC<AccountDetailModalProps> = ({ accountId, onCl
     setFilteredBalance(netBalance);
   };
 
+  const totalGroupBalance = useMemo(() => {
+    if (!account) return { ARS: 0, USD: 0 };
+    const balances = getBalancesByGroup(account.currency);
+    return { [account.currency]: balances[account.groupId] || 0 };
+  }, [account, getBalancesByGroup]);
+
   if (!accountId || !account) {
     return null;
   }
@@ -93,6 +99,13 @@ const AccountDetailModal: React.FC<AccountDetailModalProps> = ({ accountId, onCl
               <p className="text-slate-900 font-bold">
                 {account.currency === "ARS" ? "$" : "US$"}{" "}
                 {getAccountBalance(account.id).toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </p>
+            </div>
+            <div className="col-span-2">
+              <p className="text-xs font-bold text-slate-500 uppercase">Total Grupo {account.groupId}</p>
+              <p className="text-slate-900 font-bold">
+                {account.currency === "ARS" ? "$" : "US$"}{" "}
+                {totalGroupBalance[account.currency]?.toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </p>
             </div>
           </div>

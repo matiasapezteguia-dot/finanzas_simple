@@ -9,7 +9,7 @@ interface BalanceCardsProps {
 
 const BalanceCards: React.FC<BalanceCardsProps> = ({ totalARS, totalUSD, getBalancesByCategory }) => {
   return (
-    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
       {/* Saldo Total ARS */}
       <div className="bg-blue-600 text-white p-4 rounded-2xl shadow-xl flex flex-col justify-between transform hover:scale-105 transition-transform duration-300 ease-in-out">
         <div>
@@ -39,21 +39,6 @@ const BalanceCards: React.FC<BalanceCardsProps> = ({ totalARS, totalUSD, getBala
               <span>{category}</span>
               <span className="font-semibold">
                 $ {balance.toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </span>
-            </li>
-          ))}
-        </ul>
-      </div>
-
-      {/* Saldos por Categoría (USD) */}
-      <div className="bg-white p-6 rounded-2xl shadow-xl border border-slate-200">
-        <h3 className="text-lg font-bold text-slate-900 mb-4">Saldos por Categoría (USD)</h3>
-        <ul className="space-y-2">
-          {Object.entries(getBalancesByCategory("USD")).map(([category, balance]) => (
-            <li key={category} className="flex justify-between items-center text-sm text-slate-700">
-              <span>{category}</span>
-              <span className="font-semibold">
-                US$ {balance.toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </span>
             </li>
           ))}
