@@ -54,6 +54,10 @@ export default function Dashboard() {
         setErrorMessage("Para una transferencia, ambas cuentas (origen y destino) deben ser cuentas del sistema.");
         return;
       }
+      if (sourceAccountId === targetAccountId) {
+        setErrorMessage("La cuenta de origen y destino en una transferencia deben ser diferentes.");
+        return;
+      }
       if (sourceAccount.currency !== targetAccount.currency) {
         setErrorMessage("No se permiten transferencias directas entre cuentas de distinta moneda.");
         return;
