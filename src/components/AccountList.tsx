@@ -1,13 +1,13 @@
 import React from 'react';
 import { Account } from "@/lib/store"; // Assuming Account type is exported from store
 
-interface DashboardAccountsProps {
+interface AccountListProps {
   accounts: Account[];
   getAccountBalance: (accountId: string) => number;
   openAccountDetailModal: (accountId: string) => void;
 }
 
-const DashboardAccounts: React.FC<DashboardAccountsProps> = ({ accounts, getAccountBalance, openAccountDetailModal }) => {
+const AccountList: React.FC<AccountListProps> = ({ accounts, getAccountBalance, openAccountDetailModal }) => {
   // Agrupar cuentas por categoría
   const groupedAccounts = accounts.reduce((acc, account) => {
     const category = account.categoryId || 'Sin Categoría'; // Asignar una categoría por defecto si no existe
@@ -49,4 +49,4 @@ const DashboardAccounts: React.FC<DashboardAccountsProps> = ({ accounts, getAcco
   );
 };
 
-export default DashboardAccounts;
+export default AccountList;

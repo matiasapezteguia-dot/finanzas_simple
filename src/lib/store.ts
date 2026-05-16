@@ -166,6 +166,30 @@ export const useFinanzasStore = () => {
     });
   };
 
+  const updateListItem = (listName: keyof StoreState, oldItem: string, newItem: string) => {
+    setState((prevState) => {
+      const currentList = prevState[listName] as string[];
+      const updatedList = currentList.map((item) => (item === oldItem ? newItem : item));
+
+      // Also update accounts that might be using this old item
+      const updatedAccounts = prevState.accounts.map(account => {
+        let accountChanged = false;
+        const newAccount = { ...account };
+        if (listName === 'accountGroups' && account.groupId === oldItem) {
+          newAccount.groupId = newItem;
+          accountChanged = true;
+        }
+        if (listName === 'accountCategories' && account.categoryId === oldItem) {
+          newAccount.categoryId = newItem;
+          accountChanged = true;
+        }
+        return accountChanged ? newAccount : account;
+      });
+
+      return { ...prevState, [listName]: updatedList, accounts: updatedAccounts };
+    });
+  };
+
   const addAccount = (account: Omit<Account, 'id'>) => {
     const newAccount: Account = {
       ...account,
@@ -174,6 +198,15 @@ export const useFinanzasStore = () => {
     setState((prevState) => ({
       ...prevState,
       accounts: [...prevState.accounts, newAccount],
+    }));
+  };
+
+  const updateAccount = (updatedAccount: Account) => {
+    setState((prevState) => ({
+      ...prevState,
+      accounts: prevState.accounts.map((account) =>
+        account.id === updatedAccount.id ? updatedAccount : account
+      ),
     }));
   };
 
@@ -216,10 +249,13 @@ export const useFinanzasStore = () => {
       getBalancesByGroup,
       getBalancesByCategory,
       addAccount,
+      updateAccount,
       deleteAccount,
       addAccountGroup: (group: string) => addListItem('accountGroups', group),
+      updateAccountGroup: (oldName: string, newName: string) => updateListItem('accountGroups', oldName, newName),
       deleteAccountGroup: (group: string) => deleteListItem('accountGroups', group),
       addAccountCategory: (category: string) => addListItem('accountCategories', category),
+      updateAccountCategory: (oldName: string, newName: string) => updateListItem('accountCategories', oldName, newName),
       deleteAccountCategory: (category: string) => deleteListItem('accountCategories', category),
     };
   };

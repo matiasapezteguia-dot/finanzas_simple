@@ -49,14 +49,48 @@ const Tabs: React.FC<TabsProps> = ({ children }) => {
   );
 };
 
-const ListManager: React.FC<{ title: string; list: any[]; onAdd: (item: string) => void; onDelete: (item: string) => void; getItemName?: (item: any) => string }> = ({ title, list, onAdd, onDelete, getItemName }) => {
+const ListManager: React.FC<{ 
+  title: string; 
+  list: any[]; 
+  onAdd: (item: string) => void; 
+  onDelete: (item: string) => void; 
+  onUpdate: (oldItem: string, newItem: string) => void; 
+  getItemName?: (item: any) => string; 
+  accounts?: Account[]; // Add accounts prop for deletion rule
+}> = ({ title, list, onAdd, onDelete, onUpdate, getItemName, accounts }) => {
   const [newItem, setNewItem] = useState('');
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingText, setEditingText] = useState('');
 
   const handleAdd = () => {
     if (newItem.trim()) {
       onAdd(newItem.trim());
       setNewItem('');
     }
+  };
+
+  const handleEdit = (item: string) => {
+    setEditingId(item);
+    setEditingText(item);
+  };
+
+  const handleSave = (oldItem: string) => {
+    if (editingText.trim() && editingText.trim() !== oldItem) {
+      onUpdate(oldItem, editingText.trim());
+    }
+    setEditingId(null);
+    setEditingText('');
+  };
+
+  const handleCancel = () => {
+    setEditingId(null);
+    setEditingText('');
+  };
+
+  const isDeletable = (item: string) => {
+    if (!accounts) return true; // If accounts are not provided, assume deletable
+    // Check if any account uses this category or group
+    return !accounts.some(account => account.categoryId === item || account.groupId === item);
   };
 
   return (
@@ -78,15 +112,50 @@ const ListManager: React.FC<{ title: string; list: any[]; onAdd: (item: string) 
         </button>
       </div>
       <ul className="mt-4 border border-gray-200 rounded-md divide-y divide-gray-200">
-        {list.map((item, index) => (
+        {list.map((item) => (
           <li key={getItemName ? getItemName(item) : item} className="px-4 py-3 flex items-center justify-between text-sm text-gray-900">
-            {getItemName ? getItemName(item) : item}
-            <button
-              onClick={() => onDelete(getItemName ? getItemName(item) : item)}
-              className="text-red-600 hover:text-red-900"
-            >
-              Eliminar
-            </button>
+            {editingId === (getItemName ? getItemName(item) : item) ? (
+              <div className="flex-grow flex items-center space-x-2">
+                <input
+                  type="text"
+                  value={editingText}
+                  onChange={(e) => setEditingText(e.target.value)}
+                  className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                />
+                <button
+                  onClick={() => handleSave(getItemName ? getItemName(item) : item)}
+                  className="inline-flex items-center rounded-md border border-transparent bg-green-600 px-3 py-1 text-sm font-medium text-white shadow-sm hover:bg-green-700"
+                >
+                  Guardar
+                </button>
+                <button
+                  onClick={handleCancel}
+                  className="inline-flex items-center rounded-md border border-transparent bg-gray-200 px-3 py-1 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-300"
+                >
+                  Cancelar
+                </button>
+              </div>
+            ) : (
+              <span className="flex-grow">{getItemName ? getItemName(item) : item}</span>
+            )}
+            <div className="flex space-x-2 ml-4">
+              {editingId !== (getItemName ? getItemName(item) : item) && (
+                <button
+                  onClick={() => handleEdit(getItemName ? getItemName(item) : item)}
+                  className="text-indigo-600 hover:text-indigo-900"
+                >
+                  Editar
+                </button>
+              )}
+              <button
+                onClick={() => onDelete(getItemName ? getItemName(item) : item)}
+                className={`text-red-600 hover:text-red-900 ${!isDeletable(getItemName ? getItemName(item) : item) ? 'disabled:opacity-40 disabled:cursor-not-allowed' : ''}`}
+                disabled={!isDeletable(getItemName ? getItemName(item) : item)}
+                title={!isDeletable(getItemName ? getItemName(item) : item) ? 'No se puede eliminar porque tiene cuentas asociadas' : ''}
+              >
+                Eliminar
+              </button>
+            </div>
           </li>
         ))}
       </ul>
@@ -105,13 +174,16 @@ export default function ConfiguracionPage() {
     accountCategories,
 
     addAccountGroup,
+    updateAccountGroup,
     deleteAccountGroup,
     addAccountCategory,
+    updateAccountCategory,
     deleteAccountCategory,
     accounts,
     addAccount,
     deleteAccount,
-    getAccountBalance, // Importar getAccountBalance
+    getAccountBalance,
+    updateAccount,
   } = useFinanzasStore();
 
   const [newAccount, setNewAccount] = useState<Omit<Account, 'id'>>({
@@ -122,6 +194,9 @@ export default function ConfiguracionPage() {
     groupId: accountGroups[0] || '',
     categoryId: accountCategories[0] || '',
   });
+
+  const [editingAccountId, setEditingAccountId] = useState<string | null>(null);
+  const [editedAccount, setEditedAccount] = useState<Account | null>(null);
 
   const handleAddAccount = () => {
     if (newAccount.name && newAccount.initialAmount >= 0 && newAccount.groupId && newAccount.categoryId) {
@@ -134,6 +209,40 @@ export default function ConfiguracionPage() {
         groupId: accountGroups[0] || '',
         categoryId: accountCategories[0] || '',
       });
+    }
+  };
+
+  const handleEditAccount = (account: Account) => {
+    setEditingAccountId(account.id);
+    setEditedAccount({ ...account });
+  };
+
+  const handleSaveAccount = () => {
+    if (editedAccount) {
+      updateAccount(editedAccount);
+      setEditingAccountId(null);
+      setEditedAccount(null);
+    }
+  };
+
+  const handleCancelEditAccount = () => {
+    setEditingAccountId(null);
+    setEditedAccount(null);
+  };
+
+  const handleDeleteAccount = (accountId: string) => {
+    const accountToDelete = accounts.find(acc => acc.id === accountId);
+    if (accountToDelete) {
+      const currentBalance = getAccountBalance(accountId);
+      if (currentBalance !== 0) {
+        const confirmDelete = window.confirm(
+          `¡Atención! Esta cuenta tiene un saldo activo de ${currentBalance.toLocaleString("es-AR", { minimumFractionDigits: 2 })}. Si la eliminas, podrías generar inconsistencias en los balances históricos. ¿Estás seguro de que deseas eliminarla de todas formas?`
+        );
+        if (!confirmDelete) {
+          return;
+        }
+      }
+      deleteAccount(accountId);
     }
   };
 
@@ -151,7 +260,9 @@ export default function ConfiguracionPage() {
             title="Grupos de Cuenta"
             list={accountGroups}
             onAdd={addAccountGroup}
+            onUpdate={updateAccountGroup}
             onDelete={deleteAccountGroup}
+            accounts={accounts}
           />
         </Tab>
         <Tab label="Categorías de Cuenta">
@@ -159,7 +270,9 @@ export default function ConfiguracionPage() {
             title="Categorías de Cuenta"
             list={accountCategories}
             onAdd={addAccountCategory}
+            onUpdate={updateAccountCategory}
             onDelete={deleteAccountCategory}
+            accounts={accounts}
           />
         </Tab>
         <Tab label="Cuentas">
@@ -254,26 +367,102 @@ export default function ConfiguracionPage() {
                       <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Saldo Actual</th>
                       <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Grupo</th>
                       <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Categoría</th>
-                      <th scope="col" className="relative px-6 py-3"><span className="sr-only">Eliminar</span></th>
+                      <th scope="col" className="relative px-6 py-3"><span className="sr-only">Acciones</span></th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
                     {accounts.map((account) => (
                       <tr key={account.id}>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{account.name}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{account.currency}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{account.initialAmount.toLocaleString("es-AR", { minimumFractionDigits: 2 })}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-bold">{getAccountBalance(account.id).toLocaleString("es-AR", { minimumFractionDigits: 2 })}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{account.groupId}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{account.categoryId}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                          <button
-                            onClick={() => deleteAccount(account.id)}
-                            className="text-red-600 hover:text-red-900"
-                          >
-                            Eliminar
-                          </button>
-                        </td>
+                        {editingAccountId === account.id ? (
+                          <>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <input
+                                type="text"
+                                value={editedAccount?.name || ''}
+                                onChange={(e) => setEditedAccount({ ...editedAccount!, name: e.target.value })}
+                                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                              />
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <select
+                                value={editedAccount?.currency || 'ARS'}
+                                onChange={(e) => setEditedAccount({ ...editedAccount!, currency: e.target.value as 'ARS' | 'USD' })}
+                                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                              >
+                                <option value="ARS">ARS</option>
+                                <option value="USD">USD</option>
+                              </select>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <input
+                                type="number"
+                                value={editedAccount?.initialAmount || 0}
+                                onChange={(e) => setEditedAccount({ ...editedAccount!, initialAmount: parseFloat(e.target.value) })}
+                                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                              />
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-bold">{getAccountBalance(account.id).toLocaleString("es-AR", { minimumFractionDigits: 2 })}</td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <select
+                                value={editedAccount?.groupId || ''}
+                                onChange={(e) => setEditedAccount({ ...editedAccount!, groupId: e.target.value })}
+                                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                              >
+                                {accountGroups.map((group) => (
+                                  <option key={group} value={group}>{group}</option>
+                                ))}
+                              </select>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <select
+                                value={editedAccount?.categoryId || ''}
+                                onChange={(e) => setEditedAccount({ ...editedAccount!, categoryId: e.target.value })}
+                                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                              >
+                                {accountCategories.map((category) => (
+                                  <option key={category} value={category}>{category}</option>
+                                ))}
+                              </select>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                              <button
+                                onClick={handleSaveAccount}
+                                className="text-green-600 hover:text-green-900 mr-2"
+                              >
+                                Guardar
+                              </button>
+                              <button
+                                onClick={handleCancelEditAccount}
+                                className="text-gray-600 hover:text-gray-900"
+                              >
+                                Cancelar
+                              </button>
+                            </td>
+                          </>
+                        ) : (
+                          <>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{account.name}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{account.currency}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{account.initialAmount.toLocaleString("es-AR", { minimumFractionDigits: 2 })}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-bold">{getAccountBalance(account.id).toLocaleString("es-AR", { minimumFractionDigits: 2 })}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{account.groupId}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{account.categoryId}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                              <button
+                                onClick={() => handleEditAccount(account)}
+                                className="text-indigo-600 hover:text-indigo-900 mr-2"
+                              >
+                                Editar
+                              </button>
+                              <button
+                                onClick={() => handleDeleteAccount(account.id)}
+                                className="text-red-600 hover:text-red-900"
+                              >
+                                Eliminar
+                              </button>
+                            </td>
+                          </>
+                        )}
                       </tr>
                     ))}
                   </tbody>
