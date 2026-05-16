@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useFinanzasStore, Account, Movement } from "@/lib/store";
+import AccountDetailModal from "@/components/AccountDetailModal";
 
 export default function Dashboard() {
   const [mounted, setMounted] = useState(false);
@@ -18,10 +19,23 @@ export default function Dashboard() {
     getAccountBalance,
     accountGroups,
     accountCategories,
+    getBalancesByGroup,
+    getBalancesByCategory,
   } = useFinanzasStore();
   
-  const [isOpen, setIsOpen] = useState(false);
-  
+  const [isMovementModalOpen, setIsMovementModalOpen] = useState(false);
+  const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
+
+  // Estados para filtros de la tabla de movimientos
+  const [filterAccount, setFilterAccount] = useState<string>("all");
+  const [filterCategory, setFilterCategory] = useState<string>("all");
+  const [filterStartDate, setFilterStartDate] = useState<string>("");
+  const [filterEndDate, setFilterEndDate] = useState<string>("");
+
+  // Estados para paginación
+  const [currentPage, setCurrentPage] = useState(1);
+  const movementsPerPage = 10;
+
   const [description, setDescription] = useState("");
   const [amount, setAmount] = useState("");
   const [currency, setCurrency] = useState<"ARS" | "USD">("ARS");
@@ -97,12 +111,54 @@ export default function Dashboard() {
     setSourceAccountId("");
     setTargetAccountId("");
     setDate(new Date().toISOString().split('T')[0]);
-    setIsOpen(false);
+    setIsMovementModalOpen(false);
+  };
+
+  const openAccountDetailModal = (accountId: string) => {
+    setSelectedAccountId(accountId);
+  };
+
+  const closeAccountDetailModal = () => {
+    setSelectedAccountId(null);
   };
 
   if (!mounted) {
     return null; // O un spinner
   }
+
+  // Lógica de filtrado y paginación
+  const filteredAndSortedMovements = movements
+    .filter(m => {
+      // Filtro por cuenta
+      if (filterAccount !== "all" && m.sourceAccountId !== filterAccount && m.targetAccountId !== filterAccount) {
+        return false;
+      }
+      // Filtro por categoría (requiere buscar la cuenta asociada al movimiento)
+      if (filterCategory !== "all") {
+        const sourceAccount = accounts.find(acc => acc.id === m.sourceAccountId);
+        const targetAccount = accounts.find(acc => acc.id === m.targetAccountId);
+        if (sourceAccount?.categoryId !== filterCategory && targetAccount?.categoryId !== filterCategory) {
+          return false;
+        }
+      }
+      // Filtro por rango de fechas
+      if (filterStartDate && m.date < filterStartDate) {
+        return false;
+      }
+      if (filterEndDate && m.date > filterEndDate) {
+        return false;
+      }
+      return true;
+    })
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()); // Ordenar por fecha descendente
+
+  // Paginación
+  const indexOfLastMovement = currentPage * movementsPerPage;
+  const indexOfFirstMovement = indexOfLastMovement - movementsPerPage;
+  const currentMovements = filteredAndSortedMovements.slice(indexOfFirstMovement, indexOfLastMovement);
+  const totalPages = Math.ceil(filteredAndSortedMovements.length / movementsPerPage);
+
+  const paginate = (pageNumber: number) => setCurrentPage(pageNumber);
 
   return (
   <div className="p-8 w-full mx-auto space-y-6 bg-slate-50 min-h-screen">
@@ -113,18 +169,85 @@ export default function Dashboard() {
       </div>
 
       {/* Tarjetas de Saldo Dinámicas */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="bg-blue-600 text-white p-6 rounded-2xl shadow-xl">
-          <p className="text-xs font-semibold uppercase tracking-wider opacity-80">Saldo Total ARS</p>
-          <p className="text-4xl font-bold mt-2">
-            $ {totalARS.toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          </p>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {/* Saldo Total ARS */}
+        <div className="bg-blue-600 text-white p-6 rounded-2xl shadow-xl flex flex-col justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wider opacity-80">Saldo Total ARS</p>
+            <p className="text-4xl font-bold mt-2">
+              $ {totalARS.toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </p>
+          </div>
         </div>
-        <div className="bg-emerald-600 text-white p-6 rounded-2xl shadow-xl">
-          <p className="text-xs font-semibold uppercase tracking-wider opacity-80">Saldo Total USD</p>
-          <p className="text-4xl font-bold mt-2">
-            US$ {totalUSD.toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          </p>
+
+        {/* Saldo Total USD */}
+        <div className="bg-emerald-600 text-white p-6 rounded-2xl shadow-xl flex flex-col justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wider opacity-80">Saldo Total USD</p>
+            <p className="text-4xl font-bold mt-2">
+              US$ {totalUSD.toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </p>
+          </div>
+        </div>
+
+        {/* Recuadro 1: Saldos por Grupo (ARS) */}
+        <div className="bg-white p-6 rounded-2xl shadow-xl border border-slate-200">
+          <h3 className="text-lg font-bold text-slate-900 mb-4">Saldos por Grupo (ARS)</h3>
+          <ul className="space-y-2">
+            {Object.entries(getBalancesByGroup("ARS")).map(([group, balance]) => (
+              <li key={group} className="flex justify-between items-center text-sm text-slate-700">
+                <span>{group}</span>
+                <span className="font-semibold">
+                  $ {balance.toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        {/* Recuadro 1: Saldos por Grupo (USD) */}
+        <div className="bg-white p-6 rounded-2xl shadow-xl border border-slate-200">
+          <h3 className="text-lg font-bold text-slate-900 mb-4">Saldos por Grupo (USD)</h3>
+          <ul className="space-y-2">
+            {Object.entries(getBalancesByGroup("USD")).map(([group, balance]) => (
+              <li key={group} className="flex justify-between items-center text-sm text-slate-700">
+                <span>{group}</span>
+                <span className="font-semibold">
+                  US$ {balance.toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        {/* Recuadro 2: Saldos por Categoría (ARS) */}
+        <div className="bg-white p-6 rounded-2xl shadow-xl border border-slate-200">
+          <h3 className="text-lg font-bold text-slate-900 mb-4">Saldos por Categoría (ARS)</h3>
+          <ul className="space-y-2">
+            {Object.entries(getBalancesByCategory("ARS")).map(([category, balance]) => (
+              <li key={category} className="flex justify-between items-center text-sm text-slate-700">
+                <span>{category}</span>
+                <span className="font-semibold">
+                  $ {balance.toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        {/* Recuadro 2: Saldos por Categoría (USD) */}
+        <div className="bg-white p-6 rounded-2xl shadow-xl border border-slate-200">
+          <h3 className="text-lg font-bold text-slate-900 mb-4">Saldos por Categoría (USD)</h3>
+          <ul className="space-y-2">
+            {Object.entries(getBalancesByCategory("USD")).map(([category, balance]) => (
+              <li key={category} className="flex justify-between items-center text-sm text-slate-700">
+                <span>{category}</span>
+                <span className="font-semibold">
+                  US$ {balance.toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
+              </li>
+            ))}
+          </ul>
         </div>
       </div>
 
@@ -133,7 +256,7 @@ export default function Dashboard() {
         <div className="p-6 border-b border-slate-200 flex justify-between items-center">
           <h2 className="text-xl font-bold text-slate-900">Últimos Movimientos</h2>
           <button 
-            onClick={() => setIsOpen(true)}
+            onClick={() => setIsMovementModalOpen(true)}
             className="bg-slate-900 text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-slate-800 transition"
           >
             + Nuevo Registro
@@ -141,6 +264,56 @@ export default function Dashboard() {
         </div>
 
         <div className="overflow-x-auto">
+          {/* Filtros Globales */}
+          <div className="bg-white p-4 grid grid-cols-1 md:grid-cols-3 gap-4 border-b border-slate-200">
+            <div>
+              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Filtrar por Cuenta</label>
+              <select
+                value={filterAccount}
+                onChange={(e) => { setFilterAccount(e.target.value); setCurrentPage(1); }}
+                className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white focus:outline-none focus:border-slate-900 text-sm"
+              >
+                <option value="all">Todas las Cuentas</option>
+                {accounts.map(account => (
+                  <option key={account.id} value={account.id}>{account.name}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Filtrar por Categoría</label>
+              <select
+                value={filterCategory}
+                onChange={(e) => { setFilterCategory(e.target.value); setCurrentPage(1); }}
+                className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white focus:outline-none focus:border-slate-900 text-sm"
+              >
+                <option value="all">Todas las Categorías</option>
+                {accountCategories.map(category => (
+                  <option key={category} value={category}>{category}</option>
+                ))}
+              </select>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Desde</label>
+                <input
+                  type="date"
+                  value={filterStartDate}
+                  onChange={(e) => { setFilterStartDate(e.target.value); setCurrentPage(1); }}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:border-slate-900 text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Hasta</label>
+                <input
+                  type="date"
+                  value={filterEndDate}
+                  onChange={(e) => { setFilterEndDate(e.target.value); setCurrentPage(1); }}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:border-slate-900 text-sm"
+                />
+              </div>
+            </div>
+          </div>
+
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-slate-50 text-slate-400 text-xs font-bold uppercase tracking-wider border-b border-slate-200">
@@ -154,12 +327,12 @@ export default function Dashboard() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-sm text-slate-700">
-              {movements.length === 0 ? (
+              {currentMovements.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="p-8 text-center text-slate-400">No hay movimientos registrados</td>
+                  <td colSpan={7} className="p-8 text-center text-slate-400">No hay movimientos registrados con los filtros actuales.</td>
                 </tr>
               ) : (
-                movements.map((m) => {
+                currentMovements.map((m) => {
                   const sourceAccountName = accounts.find(acc => acc.id === m.sourceAccountId)?.name || m.sourceAccountId || '';
                   const targetAccountName = accounts.find(acc => acc.id === m.targetAccountId)?.name || m.targetAccountId || '';
 
@@ -203,11 +376,52 @@ export default function Dashboard() {
               )}
             </tbody>
           </table>
+
+          {/* Controles de Paginación */}
+          {filteredAndSortedMovements.length > movementsPerPage && (
+            <div className="p-4 flex justify-center items-center space-x-2 border-t border-slate-200">
+              <button
+                onClick={() => paginate(currentPage - 1)}
+                disabled={currentPage === 1}
+                className="px-3 py-1 rounded-md bg-slate-100 text-slate-700 hover:bg-slate-200 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Anterior
+              </button>
+              <span className="text-sm text-slate-700">Página {currentPage} de {totalPages}</span>
+              <button
+                onClick={() => paginate(currentPage + 1)}
+                disabled={currentPage === totalPages}
+                className="px-3 py-1 rounded-md bg-slate-100 text-slate-700 hover:bg-slate-200 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Siguiente
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Sección de Cuentas para probar el Modal de Detalle */}
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+        <div className="p-6 border-b border-slate-100">
+          <h2 className="text-xl font-bold text-slate-900">Cuentas</h2>
+        </div>
+        <div className="p-6">
+          <ul className="divide-y divide-slate-100">
+            {accounts.map((account) => (
+              <li key={account.id} className="flex justify-between items-center py-3 hover:bg-slate-50 cursor-pointer" onClick={() => openAccountDetailModal(account.id)}>
+                <span className="font-medium text-slate-900">{account.name}</span>
+                <span className="text-slate-700">
+                  {account.currency === "ARS" ? "$" : "US$"}{" "}
+                  {getAccountBalance(account.id).toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
+              </li>
+            ))}
+          </ul>
         </div>
       </div>
 
       {/* MODAL INTERACTIVO DE REGISTRO */}
-      {isOpen && (
+      {isMovementModalOpen && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-slate-100 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
             <div className="p-6 border-b border-slate-100">
@@ -343,7 +557,7 @@ export default function Dashboard() {
               <div className="pt-4 flex space-x-3 justify-end border-t border-slate-100">
                 <button 
                   type="button"
-                  onClick={() => setIsOpen(false)}
+                  onClick={() => setIsMovementModalOpen(false)}
                   className="px-4 py-2 text-sm font-semibold text-slate-500 hover:text-slate-700 transition"
                 >
                   Cancelar
@@ -358,6 +572,14 @@ export default function Dashboard() {
             </form>
           </div>
         </div>
+      )}
+
+      {/* Modal de Detalle de Cuenta */}
+      {selectedAccountId && (
+        <AccountDetailModal
+          accountId={selectedAccountId}
+          onClose={closeAccountDetailModal}
+        />
       )}
     </div>
   );
