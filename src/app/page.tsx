@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useFinanzasStore, Account, Movement } from "@/lib/store";
 import AccountDetailModal from "@/components/AccountDetailModal";
+import DashboardAccounts from "@/components/DashboardAccounts";
 
 export default function Dashboard() {
   const [mounted, setMounted] = useState(false);
@@ -251,6 +252,13 @@ export default function Dashboard() {
         </div>
       </div>
 
+      {/* Componente de Cuentas */}
+      <DashboardAccounts
+        accounts={accounts}
+        getAccountBalance={getAccountBalance}
+        openAccountDetailModal={openAccountDetailModal}
+      />
+
       {/* Tabla de Movimientos */}
       <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
         <div className="p-6 border-b border-slate-200 flex justify-between items-center">
@@ -400,25 +408,6 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Sección de Cuentas para probar el Modal de Detalle */}
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-        <div className="p-6 border-b border-slate-100">
-          <h2 className="text-xl font-bold text-slate-900">Cuentas</h2>
-        </div>
-        <div className="p-6">
-          <ul className="divide-y divide-slate-100">
-            {accounts.map((account) => (
-              <li key={account.id} className="flex justify-between items-center py-3 hover:bg-slate-50 cursor-pointer" onClick={() => openAccountDetailModal(account.id)}>
-                <span className="font-medium text-slate-900">{account.name}</span>
-                <span className="text-slate-700">
-                  {account.currency === "ARS" ? "$" : "US$"}{" "}
-                  {getAccountBalance(account.id).toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      </div>
 
       {/* MODAL INTERACTIVO DE REGISTRO */}
       {isMovementModalOpen && (
