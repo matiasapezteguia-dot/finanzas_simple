@@ -32,6 +32,16 @@ export default function Dashboard() {
   const [filterCategory, setFilterCategory] = useState<string>("all");
   const [filterStartDate, setFilterStartDate] = useState<string>("");
   const [filterEndDate, setFilterEndDate] = useState<string>("");
+  const [filterType, setFilterType] = useState<"all" | "income" | "expense" | "transfer">("all");
+
+  const handleClearFilters = () => {
+    setFilterAccount("all");
+    setFilterCategory("all");
+    setFilterStartDate("");
+    setFilterEndDate("");
+    setFilterType("all");
+    setCurrentPage(1);
+  };
 
   // Estados para paginación
   const [currentPage, setCurrentPage] = useState(1);
@@ -127,35 +137,41 @@ export default function Dashboard() {
     return null; // O un spinner
   }
 
-  // Lógica de filtrado y paginación
-  const filteredAndSortedMovements = movements
-    .filter(m => {
-      // Filtro por cuenta
-      if (filterAccount !== "all" && m.sourceAccountId !== filterAccount && m.targetAccountId !== filterAccount) {
-        return false;
-      }
-      // Filtro por categoría (requiere buscar la cuenta asociada al movimiento)
-        if (filterCategory !== "all") {
+      // Lógica de filtrado y paginación
+      const filteredAndSortedMovements = movements
+        .filter(m => {
+          const movementDate = new Date(m.date);
+          movementDate.setHours(0, 0, 0, 0); // Ignorar la hora para la comparación
+
+          const start = filterStartDate ? new Date(filterStartDate) : null;
+          if (start) start.setHours(0, 0, 0, 0);
+
+          const end = filterEndDate ? new Date(filterEndDate) : null;
+          if (end) end.setHours(0, 0, 0, 0);
+
+          // Filtro por cuenta
+          const accountMatches = filterAccount === 'all' || m.sourceAccountId === filterAccount || m.targetAccountId === filterAccount;
+          if (!accountMatches) return false;
+
+          // Filtro por categoría
           const sourceAccount = accounts.find(acc => acc.id === m.sourceAccountId);
           const targetAccount = accounts.find(acc => acc.id === m.targetAccountId);
+          const categoryMatches = filterCategory === 'all' || 
+                                  (sourceAccount && sourceAccount.categoryId === filterCategory) || 
+                                  (targetAccount && targetAccount.categoryId === filterCategory);
+          if (!categoryMatches) return false;
 
-          const sourceCategoryMatches = sourceAccount && sourceAccount.categoryId === filterCategory;
-          const targetCategoryMatches = targetAccount && targetAccount.categoryId === filterCategory;
+          // Filtro por tipo de movimiento
+          const typeMatches = filterType === 'all' || m.type === filterType;
+          if (!typeMatches) return false;
 
-          if (!sourceCategoryMatches && !targetCategoryMatches) {
-            return false;
-          }
-        }
-      // Filtro por rango de fechas
-      if (filterStartDate && m.date < filterStartDate) {
-        return false;
-      }
-      if (filterEndDate && m.date > filterEndDate) {
-        return false;
-      }
-      return true;
-    })
-    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()); // Ordenar por fecha descendente
+          // Filtro por rango de fechas
+          const dateMatches = (!start || movementDate >= start) && (!end || movementDate <= end);
+          if (!dateMatches) return false;
+
+          return true;
+        })
+        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()); // Ordenar por fecha descendente
 
   // Paginación
   const indexOfLastMovement = currentPage * movementsPerPage;
@@ -168,64 +184,42 @@ export default function Dashboard() {
   return (
   <div className="p-8 w-full mx-auto space-y-6 bg-slate-50 min-h-screen">
       {/* Encabezado */}
-      <div>
-        <h1 className="text-3xl font-bold text-slate-900">Finanzas Bimonetarias</h1>
-        <p className="text-slate-500">Control de caja real para PyMEs</p>
+      <div className="flex justify-between items-center mb-6">
+        <div>
+          <h1 className="text-3xl font-bold text-slate-900">Finanzas Bimonetarias</h1>
+          <p className="text-slate-500">Control de caja real para PyMEs</p>
+        </div>
+        <button 
+          onClick={() => setIsMovementModalOpen(true)}
+          className="bg-slate-900 text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-slate-800 transition"
+        >
+          + Nuevo Registro
+        </button>
       </div>
 
-      {/* Tarjetas de Saldo Dinámicas */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      {/* Tarjetas de Saldo Dinámicas y por Categoría */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         {/* Saldo Total ARS */}
-        <div className="bg-blue-600 text-white p-6 rounded-2xl shadow-xl flex flex-col justify-between">
+        <div className="bg-blue-600 text-white p-4 rounded-2xl shadow-xl flex flex-col justify-between transform hover:scale-105 transition-transform duration-300 ease-in-out">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wider opacity-80">Saldo Total ARS</p>
-            <p className="text-4xl font-bold mt-2">
+            <p className="text-sm font-semibold uppercase tracking-wider opacity-80">Saldo Total ARS</p>
+            <p className="text-2xl font-bold mt-2 leading-tight">
               $ {totalARS.toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </p>
           </div>
         </div>
 
         {/* Saldo Total USD */}
-        <div className="bg-emerald-600 text-white p-6 rounded-2xl shadow-xl flex flex-col justify-between">
+        <div className="bg-emerald-600 text-white p-4 rounded-2xl shadow-xl flex flex-col justify-between transform hover:scale-105 transition-transform duration-300 ease-in-out">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wider opacity-80">Saldo Total USD</p>
-            <p className="text-4xl font-bold mt-2">
+            <p className="text-sm font-semibold uppercase tracking-wider opacity-80">Saldo Total USD</p>
+            <p className="text-2xl font-bold mt-2 leading-tight">
               US$ {totalUSD.toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </p>
           </div>
         </div>
 
-        {/* Recuadro 1: Saldos por Grupo (ARS) */}
-        <div className="bg-white p-6 rounded-2xl shadow-xl border border-slate-200">
-          <h3 className="text-lg font-bold text-slate-900 mb-4">Saldos por Grupo (ARS)</h3>
-          <ul className="space-y-2">
-            {Object.entries(getBalancesByGroup("ARS")).map(([group, balance]) => (
-              <li key={group} className="flex justify-between items-center text-sm text-slate-700">
-                <span>{group}</span>
-                <span className="font-semibold">
-                  $ {balance.toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </div>
-
-        {/* Recuadro 1: Saldos por Grupo (USD) */}
-        <div className="bg-white p-6 rounded-2xl shadow-xl border border-slate-200">
-          <h3 className="text-lg font-bold text-slate-900 mb-4">Saldos por Grupo (USD)</h3>
-          <ul className="space-y-2">
-            {Object.entries(getBalancesByGroup("USD")).map(([group, balance]) => (
-              <li key={group} className="flex justify-between items-center text-sm text-slate-700">
-                <span>{group}</span>
-                <span className="font-semibold">
-                  US$ {balance.toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </div>
-
-        {/* Recuadro 2: Saldos por Categoría (ARS) */}
+        {/* Saldos por Categoría (ARS) */}
         <div className="bg-white p-6 rounded-2xl shadow-xl border border-slate-200">
           <h3 className="text-lg font-bold text-slate-900 mb-4">Saldos por Categoría (ARS)</h3>
           <ul className="space-y-2">
@@ -240,7 +234,7 @@ export default function Dashboard() {
           </ul>
         </div>
 
-        {/* Recuadro 2: Saldos por Categoría (USD) */}
+        {/* Saldos por Categoría (USD) */}
         <div className="bg-white p-6 rounded-2xl shadow-xl border border-slate-200">
           <h3 className="text-lg font-bold text-slate-900 mb-4">Saldos por Categoría (USD)</h3>
           <ul className="space-y-2">
@@ -277,7 +271,7 @@ export default function Dashboard() {
 
         <div className="overflow-x-auto">
           {/* Filtros Globales */}
-          <div className="bg-white p-4 grid grid-cols-1 md:grid-cols-3 gap-4 border-b border-slate-200">
+          <div className="bg-white p-4 grid grid-cols-1 md:grid-cols-4 gap-4 border-b border-slate-200 items-end">
             <div>
               <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Filtrar por Cuenta</label>
               <select
@@ -304,6 +298,19 @@ export default function Dashboard() {
                 ))}
               </select>
             </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Filtrar por Tipo</label>
+              <select
+                value={filterType}
+                onChange={(e) => { setFilterType(e.target.value as "all" | "income" | "expense" | "transfer"); setCurrentPage(1); }}
+                className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white focus:outline-none focus:border-slate-900 text-sm"
+              >
+                <option value="all">Todos</option>
+                <option value="income">Ingreso</option>
+                <option value="expense">Egreso</option>
+                <option value="transfer">Transferencia</option>
+              </select>
+            </div>
             <div className="grid grid-cols-2 gap-2">
               <div>
                 <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Desde</label>
@@ -323,6 +330,14 @@ export default function Dashboard() {
                   className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:border-slate-900 text-sm"
                 />
               </div>
+            </div>
+            <div className="col-span-full md:col-span-1 flex justify-end md:justify-start">
+              <button
+                onClick={handleClearFilters}
+                className="bg-gray-200 text-gray-700 px-4 py-2 rounded-xl text-sm font-semibold hover:bg-gray-300 transition"
+              >
+                Limpiar Filtros
+              </button>
             </div>
           </div>
 

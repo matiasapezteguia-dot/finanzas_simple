@@ -54,16 +54,18 @@ const AccountDetailModal: React.FC<AccountDetailModalProps> = ({ accountId, onCl
 
     setFilteredMovements(tempMovements);
 
-    // Calculate "Saldo del Filtro"
-    let balance = selectedAccount.initialAmount; // Start with initial amount of the account
+    // Calculate "Saldo Neto del Período"
+    let netBalance = 0; // Start with 0 for net balance of the period
     tempMovements.forEach((m) => {
       if (m.targetAccountId === selectedAccount.id) {
-        balance += m.amount;
+        // Movement is incoming to the selected account
+        netBalance += m.amount;
       } else if (m.sourceAccountId === selectedAccount.id) {
-        balance -= m.amount;
+        // Movement is outgoing from the selected account
+        netBalance -= m.amount;
       }
     });
-    setFilteredBalance(balance);
+    setFilteredBalance(netBalance);
   };
 
   if (!accountId || !account) {
