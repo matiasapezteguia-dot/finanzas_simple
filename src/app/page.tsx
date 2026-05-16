@@ -135,13 +135,17 @@ export default function Dashboard() {
         return false;
       }
       // Filtro por categoría (requiere buscar la cuenta asociada al movimiento)
-      if (filterCategory !== "all") {
-        const sourceAccount = accounts.find(acc => acc.id === m.sourceAccountId);
-        const targetAccount = accounts.find(acc => acc.id === m.targetAccountId);
-        if (sourceAccount?.categoryId !== filterCategory && targetAccount?.categoryId !== filterCategory) {
-          return false;
+        if (filterCategory !== "all") {
+          const sourceAccount = accounts.find(acc => acc.id === m.sourceAccountId);
+          const targetAccount = accounts.find(acc => acc.id === m.targetAccountId);
+
+          const sourceCategoryMatches = sourceAccount && sourceAccount.categoryId === filterCategory;
+          const targetCategoryMatches = targetAccount && targetAccount.categoryId === filterCategory;
+
+          if (!sourceCategoryMatches && !targetCategoryMatches) {
+            return false;
+          }
         }
-      }
       // Filtro por rango de fechas
       if (filterStartDate && m.date < filterStartDate) {
         return false;
