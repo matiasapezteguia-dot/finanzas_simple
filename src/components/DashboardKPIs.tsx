@@ -1,34 +1,16 @@
 
 import React from 'react';
 
-import { useFinanzasStore, Account } from '../lib/store';
+import { useFinanzasStore } from '../lib/store';
 
 const DashboardKPIs: React.FC = () => {
-  const { accounts, getAccountBalance } = useFinanzasStore();
+  const { accounts, movements, getBalance, getAvailableARS, getTotalARSInvestments } = useFinanzasStore();
+  console.log("DashboardKPIs re-rendered. Movements count:", movements.length);
 
-  const totalARS = React.useMemo(() => {
-    return accounts
-      .filter(account => account.currency === 'ARS')
-      .reduce((sum, account) => sum + getAccountBalance(account.id), 0);
-  }, [accounts, getAccountBalance]);
-
-  const totalUSD = React.useMemo(() => {
-    return accounts
-      .filter(account => account.currency === 'USD')
-      .reduce((sum, account) => sum + getAccountBalance(account.id), 0);
-  }, [accounts, getAccountBalance]);
-
-  const totalInversiones = React.useMemo(() => {
-    return accounts
-      .filter(account => account.categoryId === 'Inversiones' && account.currency === 'ARS')
-      .reduce((sum, account) => sum + getAccountBalance(account.id), 0);
-  }, [accounts, getAccountBalance]);
-
-  const totalDisponible = React.useMemo(() => {
-    return accounts
-      .filter(account => account.categoryId === 'Uso Diario' || account.categoryId === 'Efectivo')
-      .reduce((sum, account) => sum + getAccountBalance(account.id), 0);
-  }, [accounts, getAccountBalance]);
+  const totalARS = getBalance('ARS');
+  const totalUSD = getBalance('USD');
+  const totalInversiones = getTotalARSInvestments();
+  const totalDisponible = getAvailableARS();
 
   const formatCurrency = (value: number, currency: 'ARS' | 'USD') => {
     return new Intl.NumberFormat('es-AR', {

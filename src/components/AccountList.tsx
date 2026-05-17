@@ -1,5 +1,5 @@
 import React from 'react';
-import { Account } from "@/lib/store"; // Assuming Account type is exported from store
+import { Account } from "@/lib/store.tsx"; // Assuming Account type is exported from store
 
 interface AccountListProps {
   accounts: Account[];

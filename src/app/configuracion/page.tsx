@@ -53,11 +53,12 @@ const ListManager: React.FC<{
   title: string; 
   list: any[]; 
   onAdd: (item: string) => void; 
-  onDelete: (item: string) => void; 
-  onUpdate: (oldItem: string, newItem: string) => void; 
-  getItemName?: (item: any) => string; 
-  accounts?: Account[]; // Add accounts prop for deletion rule
-}> = ({ title, list, onAdd, onDelete, onUpdate, getItemName, accounts }) => {
+   onDelete: (item: string) => void; 
+   onUpdate: (oldItem: string, newItem: string) => void; 
+   getItemName?: (item: any) => string; 
+   accounts?: Account[]; // Add accounts prop for deletion rule
+   renderItemExtra?: (item: any) => React.ReactNode; // New prop for extra content
+}> = ({ title, list, onAdd, onDelete, onUpdate, getItemName, accounts, renderItemExtra }) => {
   const [newItem, setNewItem] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingText, setEditingText] = useState('');
@@ -136,7 +137,10 @@ const ListManager: React.FC<{
                 </button>
               </div>
             ) : (
-              <span className="flex-grow">{getItemName ? getItemName(item) : item}</span>
+              <span className="flex-grow flex items-center justify-between">
+                {getItemName ? getItemName(item) : item}
+                {renderItemExtra && renderItemExtra(item)}
+              </span>
             )}
             <div className="flex space-x-2 ml-4">
               {editingId !== (getItemName ? getItemName(item) : item) && (
@@ -184,6 +188,8 @@ export default function ConfiguracionPage() {
     deleteAccount,
     getAccountBalance,
     updateAccount,
+    getBalancesByCategory,
+    getBalancesByGroup,
   } = useFinanzasStore();
 
   const [newAccount, setNewAccount] = useState<Omit<Account, 'id'>>({
@@ -263,6 +269,27 @@ export default function ConfiguracionPage() {
             onUpdate={updateAccountGroup}
             onDelete={deleteAccountGroup}
             accounts={accounts}
+            renderItemExtra={(group: string) => {
+              const balancesARS = getBalancesByGroup('ARS');
+              const balancesUSD = getBalancesByGroup('USD');
+              const totalARS = balancesARS[group] || 0;
+              const totalUSD = balancesUSD[group] || 0;
+
+              const formatCurrency = (value: number, currency: 'ARS' | 'USD') => {
+                return new Intl.NumberFormat('es-AR', {
+                  style: 'currency',
+                  currency: currency,
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                }).format(value);
+              };
+
+              return (
+                <span className="text-xs text-gray-500 ml-2">
+                  ({formatCurrency(totalARS, 'ARS')} / {formatCurrency(totalUSD, 'USD')})
+                </span>
+              );
+            }}
           />
         </Tab>
         <Tab label="Categorías de Cuenta">
@@ -273,6 +300,27 @@ export default function ConfiguracionPage() {
             onUpdate={updateAccountCategory}
             onDelete={deleteAccountCategory}
             accounts={accounts}
+            renderItemExtra={(category: string) => {
+              const balancesARS = getBalancesByCategory('ARS');
+              const balancesUSD = getBalancesByCategory('USD');
+              const totalARS = balancesARS[category] || 0;
+              const totalUSD = balancesUSD[category] || 0;
+
+              const formatCurrency = (value: number, currency: 'ARS' | 'USD') => {
+                return new Intl.NumberFormat('es-AR', {
+                  style: 'currency',
+                  currency: currency,
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                }).format(value);
+              };
+
+              return (
+                <span className="text-xs text-gray-500 ml-2">
+                  ({formatCurrency(totalARS, 'ARS')} / {formatCurrency(totalUSD, 'USD')})
+                </span>
+              );
+            }}
           />
         </Tab>
         <Tab label="Cuentas">
@@ -375,14 +423,7 @@ export default function ConfiguracionPage() {
                       <tr key={account.id}>
                         {editingAccountId === account.id ? (
                           <>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <input
-                                type="text"
-                                value={editedAccount?.name || ''}
-                                onChange={(e) => setEditedAccount({ ...editedAccount!, name: e.target.value })}
-                                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                              />
-                            </td>
+
                             <td className="px-6 py-4 whitespace-nowrap">
                               <select
                                 value={editedAccount?.currency || 'ARS'}
@@ -401,7 +442,18 @@ export default function ConfiguracionPage() {
                                 className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                               />
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-bold">{getAccountBalance(account.id).toLocaleString("es-AR", { minimumFractionDigits: 2 })}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-bold">
+                              {new Intl.NumberFormat('es-AR', { style: 'currency', currency: editedAccount?.currency || 'ARS', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(getAccountBalance(account.id))}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <input
+                                type="text"
+                                value={editedAccount?.name || ''}
+                                onChange={(e) => setEditedAccount({ ...editedAccount!, name: e.target.value })}
+                                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                              />
+                            </td>
+
                             <td className="px-6 py-4 whitespace-nowrap">
                               <select
                                 value={editedAccount?.groupId || ''}
@@ -444,7 +496,9 @@ export default function ConfiguracionPage() {
                             <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{account.name}</td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{account.currency}</td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{account.initialAmount.toLocaleString("es-AR", { minimumFractionDigits: 2 })}</td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-bold">{getAccountBalance(account.id).toLocaleString("es-AR", { minimumFractionDigits: 2 })}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-bold">
+                              {new Intl.NumberFormat('es-AR', { style: 'currency', currency: account.currency, minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(getAccountBalance(account.id))}
+                            </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{account.groupId}</td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{account.categoryId}</td>
                             <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">

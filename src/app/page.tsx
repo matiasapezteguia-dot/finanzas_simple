@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useFinanzasStore, Account, Movement } from "@/lib/store";
+import { useFinanzasStore, Account, Movement } from "@/lib/store.tsx";
 import AccountDetailModal from "@/components/AccountDetailModal";
 import DashboardKPIs from "@/components/DashboardKPIs";
 import AccountList from "@/components/AccountList";
@@ -286,7 +286,12 @@ export default function Dashboard() {
                   <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Moneda</label>
                   <select 
                     value={currency}
-                    onChange={(e) => setCurrency(e.target.value as "ARS" | "USD")}
+                    onChange={(e) => {
+                      setCurrency(e.target.value as "ARS" | "USD");
+                      // Reset selected accounts when currency changes
+                      setSourceAccountId("");
+                      setTargetAccountId("");
+                    }}
                     className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white focus:outline-none focus:border-slate-900 text-sm"
                   >
                     <option value="ARS">ARS ($)</option>
@@ -312,7 +317,7 @@ export default function Dashboard() {
                       required={type === 'expense' || type === 'transfer'} // Requerido si es egreso o transferencia
                     >
                       <option value="">{type === 'income' ? 'Entidad Externa' : 'Seleccionar Cuenta'}</option>
-                      {accounts.map((account) => (
+                      {accounts.filter(acc => acc.currency === currency).map((account) => (
                         <option key={account.id} value={account.id}>{account.name} ({account.currency})</option>
                       ))}
                     </select>
@@ -341,7 +346,7 @@ export default function Dashboard() {
                       required={type === 'income' || type === 'transfer'} // Requerido si es ingreso o transferencia
                     >
                       <option value="">{type === 'expense' ? 'Entidad Externa' : 'Seleccionar Cuenta'}</option>
-                      {accounts.map((account) => (
+                      {accounts.filter(acc => acc.currency === currency).map((account) => (
                         <option key={account.id} value={account.id}>{account.name} ({account.currency})</option>
                       ))}
                     </select>

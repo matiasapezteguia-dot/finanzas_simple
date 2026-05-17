@@ -1,5 +1,6 @@
-import React from 'react';
-import { Account, Movement } from "@/lib/store";
+import React, { useState } from 'react';
+import { Account, Movement } from "@/lib/store.tsx";
+import { ArrowUpDown } from 'lucide-react';
 
 interface TransactionsTableProps {
   movements: Movement[];
@@ -48,18 +49,40 @@ const TransactionsTable: React.FC<TransactionsTableProps> = ({
   accountCategories,
   accountGroups,
 }) => {
+  const [sortField, setSortField] = useState<keyof Movement | null>('date');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+
+  const handleSort = (field: keyof Movement) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('desc');
+    }
+    setCurrentPage(1); // Reset pagination on sort change
+  };
+
+  // Helper function to create a local date at midnight from a yyyy-mm-dd string
+  const createLocalDate = (dateString: string): Date => {
+    const [year, month, day] = dateString.split('-').map(Number);
+    return new Date(year, month - 1, day); // Month is 0-indexed
+  };
+
+  // Helper function to get a local date at midnight from any date input
+  const getLocalMidnight = (dateInput: string | Date): Date => {
+    const d = new Date(dateInput);
+    return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  };
 
   // Lógica de filtrado y paginación
   const filteredAndSortedMovements = movements
     .filter(m => {
-      const movementDate = new Date(m.date);
-      movementDate.setHours(0, 0, 0, 0); // Ignorar la hora para la comparación
+      const movementDate = getLocalMidnight(m.date);
 
-      const start = filterStartDate ? new Date(filterStartDate) : null;
-      if (start) start.setHours(0, 0, 0, 0);
+      const start = filterStartDate ? createLocalDate(filterStartDate) : null;
 
-      const end = filterEndDate ? new Date(filterEndDate) : null;
-      if (end) end.setHours(0, 0, 0, 0);
+      const end = filterEndDate ? createLocalDate(filterEndDate) : null;
+      if (end) end.setHours(23, 59, 59, 999); // Set end date to end of day for inclusive comparison
 
       const sourceAccount = accounts.find(acc => acc.id === m.sourceAccountId);
       const targetAccount = accounts.find(acc => acc.id === m.targetAccountId);
@@ -99,7 +122,29 @@ const TransactionsTable: React.FC<TransactionsTableProps> = ({
 
       return coincideCuenta && coincideCategoria && coincideTipo && coincideGrupo && coincideFecha;
     })
-    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()); // Ordenar por fecha descendente
+    .sort((a, b) => {
+      if (!sortField) return 0;
+
+      let valA: any = a[sortField];
+      let valB: any = b[sortField];
+
+      // Special handling for date and amount
+      if (sortField === 'date') {
+        valA = new Date(valA).getTime();
+        valB = new Date(valB).getTime();
+      } else if (sortField === 'amount') {
+        valA = Number(valA);
+        valB = Number(valB);
+      }
+
+      if (valA < valB) {
+        return sortDirection === 'asc' ? -1 : 1;
+      } else if (valA > valB) {
+        return sortDirection === 'asc' ? 1 : -1;
+      } else {
+        return 0;
+      }
+    });
 
   // Paginación
   const indexOfLastMovement = currentPage * movementsPerPage;
@@ -207,14 +252,38 @@ const TransactionsTable: React.FC<TransactionsTableProps> = ({
         <table className="w-full text-left border-collapse">
           <thead>
             <tr className="bg-slate-50 text-slate-400 text-xs font-bold uppercase tracking-wider border-b border-slate-200">
-              <th className="p-4">Descripción</th>
+              <th className="p-4 cursor-pointer hover:bg-slate-100" onClick={() => handleSort('date')}>
+                <div className="flex items-center justify-between">
+                  Fecha
+                  <ArrowUpDown size={14} className="ml-1" />
+                </div>
+              </th>
+              <th className="p-4 cursor-pointer hover:bg-slate-100" onClick={() => handleSort('description')}>
+                <div className="flex items-center justify-between">
+                  Descripción
+                  <ArrowUpDown size={14} className="ml-1" />
+                </div>
+              </th>
               <th className="p-4">Origen</th>
               <th className="p-4">Destino</th>
-              <th className="p-4 text-center">Categoría</th>
-              <th className="p-4 text-center">Grupo</th>
-              <th className="p-4 text-center">Tipo</th>
-              <th className="p-4 text-center">Moneda</th>
-              <th className="p-4 text-right">Monto</th>
+              <th className="p-4 text-center cursor-pointer hover:bg-slate-100" onClick={() => handleSort('type')}>
+                <div className="flex items-center justify-center">
+                  Tipo
+                  <ArrowUpDown size={14} className="ml-1" />
+                </div>
+              </th>
+              <th className="p-4 text-center cursor-pointer hover:bg-slate-100" onClick={() => handleSort('currency')}>
+                <div className="flex items-center justify-center">
+                  Moneda
+                  <ArrowUpDown size={14} className="ml-1" />
+                </div>
+              </th>
+              <th className="p-4 text-right cursor-pointer hover:bg-slate-100" onClick={() => handleSort('amount')}>
+                <div className="flex items-center justify-end">
+                  Monto
+                  <ArrowUpDown size={14} className="ml-1" />
+                </div>
+              </th>
               <th className="p-4 text-center">Acciones</th>
             </tr>
           </thead>
@@ -239,6 +308,7 @@ const TransactionsTable: React.FC<TransactionsTableProps> = ({
 
                 return (
                   <tr key={m.id} className="hover:bg-slate-50 transition">
+                    <td className="p-4">{new Date(m.date).toLocaleDateString()}</td>
                     <td className="p-4 font-medium text-slate-900">{m.description}</td>
                     <td className="p-4">
                       {m.type === 'transfer' ? '' : displaySource}

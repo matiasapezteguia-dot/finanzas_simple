@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, createContext, useContext, ReactNode } from 'react';
 
 export interface Account {
   id: string;
@@ -28,6 +28,26 @@ interface StoreState {
   accountCategories: string[];
 }
 
+interface FinanzasStoreContextType extends StoreState {
+  addMovement: (movement: Omit<Movement, 'id'>) => void;
+  deleteMovement: (id: string) => void;
+  getBalance: (currency: 'ARS' | 'USD') => number;
+  getAccountBalance: (accountId: string) => number;
+  getBalancesByGroup: (currency: 'ARS' | 'USD') => { [key: string]: number };
+  getBalancesByCategory: (currency: 'ARS' | 'USD') => { [key: string]: number };
+  addAccount: (account: Omit<Account, 'id'>) => void;
+  updateAccount: (updatedAccount: Account) => void;
+  deleteAccount: (id: string) => void;
+  addAccountGroup: (group: string) => void;
+  updateAccountGroup: (oldName: string, newName: string) => void;
+  deleteAccountGroup: (group: string) => void;
+  addAccountCategory: (category: string) => void;
+  updateAccountCategory: (oldName: string, newName: string) => void;
+  deleteAccountCategory: (category: string) => void;
+  getAvailableARS: () => number;
+  getTotalARSInvestments: () => number;
+}
+
 const LOCAL_STORAGE_KEY = 'finanzasStore';
 
 const initialState: StoreState = {
@@ -38,20 +58,16 @@ const initialState: StoreState = {
 };
 
 const loadState = (): StoreState => {
-  // Verificar si estamos en el navegador
   if (typeof window === 'undefined') {
     return initialState;
   }
 
   try {
     const serializedState = localStorage.getItem(LOCAL_STORAGE_KEY);
-
     if (serializedState === null) {
       return initialState;
     }
-
     const storedState: StoreState = JSON.parse(serializedState);
-
     return {
       ...initialState,
       ...storedState,
@@ -67,11 +83,9 @@ const loadState = (): StoreState => {
 };
 
 const saveState = (state: StoreState) => {
-  // Verificar si estamos en el navegador
   if (typeof window === 'undefined') {
     return;
   }
-
   try {
     const serializedState = JSON.stringify(state);
     localStorage.setItem(LOCAL_STORAGE_KEY, serializedState);
@@ -80,7 +94,9 @@ const saveState = (state: StoreState) => {
   }
 };
 
-export const useFinanzasStore = () => {
+const FinanzasContext = createContext<FinanzasStoreContextType | undefined>(undefined);
+
+export const FinanzasProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [state, setState] = useState<StoreState>(() => loadState());
 
   useEffect(() => {
@@ -90,23 +106,11 @@ export const useFinanzasStore = () => {
   const addMovement = (movement: Omit<Movement, 'id'>) => {
     const newMovement: Movement = {
       ...movement,
-      id: Date.now().toString(), // Simple unique ID
+      id: Date.now().toString(),
     };
     setState((prevState) => {
       const newState = { ...prevState, movements: [...prevState.movements, newMovement] };
-      // Actualizar el balance de la cuenta afectada
-      if (newMovement.sourceAccountId) {
-        const sourceAccount = prevState.accounts.find(acc => acc.id === newMovement.sourceAccountId);
-        if (sourceAccount) {
-          // No se actualiza el initialAmount, se actualiza el balance a través de los movimientos
-        }
-      }
-      if (newMovement.targetAccountId) {
-        const targetAccount = prevState.accounts.find(acc => acc.id === newMovement.targetAccountId);
-        if (targetAccount) {
-          // No se actualiza el initialAmount, se actualiza el balance a través de los movimientos
-        }
-      }
+      // No es necesario actualizar el balance de la cuenta aquí, ya que getAccountBalance lo calcula dinámicamente.
       return newState;
     });
   };
@@ -123,19 +127,21 @@ export const useFinanzasStore = () => {
 
     let balance = account.initialAmount;
 
-    state.movements.forEach(m => {
-      if (m.type === 'adjustment') {
-        if (m.targetAccountId === accountId) {
-          balance += m.amount;
+    state.movements
+      .filter(m => m.currency === account.currency) // Filter movements by account currency
+      .forEach(m => {
+        if (m.type === 'adjustment') {
+          if (m.targetAccountId === accountId) {
+            balance += m.amount;
+          }
+        } else { // For 'income', 'expense', 'transfer'
+          if (m.targetAccountId === accountId) {
+            balance += m.amount;
+          } else if (m.sourceAccountId === accountId) {
+            balance -= m.amount;
+          }
         }
-      } else { // For 'income', 'expense', 'transfer'
-        if (m.targetAccountId === accountId) {
-          balance += m.amount;
-        } else if (m.sourceAccountId === accountId) {
-          balance -= m.amount;
-        }
-      }
-    });
+      });
     return balance;
   };
 
@@ -191,7 +197,6 @@ export const useFinanzasStore = () => {
       const currentList = prevState[listName] as string[];
       const updatedList = currentList.map((item) => (item === oldItem ? newItem : item));
 
-      // Also update accounts that might be using this old item
       const updatedAccounts = prevState.accounts.map(account => {
         let accountChanged = false;
         const newAccount = { ...account };
@@ -245,11 +250,6 @@ export const useFinanzasStore = () => {
       const movementToDelete = prevState.movements.find(m => m.id === id);
       if (!movementToDelete) return prevState;
 
-      // No es necesario revertir el impacto en la cuenta
-      // ya que getBalance y getAccountBalance calculan dinámicamente
-      // el balance basándose en todos los movimientos existentes.
-      // Al eliminar el movimiento, el recálculo automático se encargará.
-
       return {
         ...prevState,
         movements: prevState.movements.filter((m) => m.id !== id),
@@ -257,39 +257,46 @@ export const useFinanzasStore = () => {
     });
   };
 
-    const getAvailableARS = (): number => {
-      return state.accounts
-        .filter(account => account.currency === 'ARS' && (account.categoryId === 'Uso Diario' || account.categoryId === 'Efectivo'))
-        .reduce((total, account) => total + getAccountBalance(account.id), 0);
-    };
-
-    const getTotalARSInvestments = (): number => {
-      return state.accounts
-        .filter(account => account.currency === 'ARS' && account.categoryId === 'Inversiones')
-        .reduce((total, account) => total + getAccountBalance(account.id), 0);
-    };
-
-    return {
-      movements: state.movements,
-      accounts: state.accounts,
-      accountGroups: state.accountGroups,
-      accountCategories: state.accountCategories,
-      addMovement,
-      deleteMovement,
-      getBalance,
-      getAccountBalance,
-      getBalancesByGroup,
-      getBalancesByCategory,
-      addAccount,
-      updateAccount,
-      deleteAccount,
-      addAccountGroup: (group: string) => addListItem('accountGroups', group),
-      updateAccountGroup: (oldName: string, newName: string) => updateListItem('accountGroups', oldName, newName),
-      deleteAccountGroup: (group: string) => deleteListItem('accountGroups', group),
-      addAccountCategory: (category: string) => addListItem('accountCategories', category),
-      updateAccountCategory: (oldName: string, newName: string) => updateListItem('accountCategories', oldName, newName),
-      deleteAccountCategory: (category: string) => deleteListItem('accountCategories', category),
-      getAvailableARS,
-      getTotalARSInvestments,
-    };
+  const getAvailableARS = (): number => {
+    return state.accounts
+      .filter(account => account.currency === 'ARS' && (account.categoryId === 'Uso Diario' || account.categoryId === 'Efectivo'))
+      .reduce((total, account) => total + getAccountBalance(account.id), 0);
   };
+
+  const getTotalARSInvestments = (): number => {
+    return state.accounts
+      .filter(account => account.currency === 'ARS' && account.categoryId === 'Inversiones')
+      .reduce((total, account) => total + getAccountBalance(account.id), 0);
+  };
+
+  const store = {
+    ...state,
+    addMovement,
+    deleteMovement,
+    getBalance,
+    getAccountBalance,
+    getBalancesByGroup,
+    getBalancesByCategory,
+    addAccount,
+    updateAccount,
+    deleteAccount,
+    addAccountGroup: (group: string) => addListItem('accountGroups', group),
+    updateAccountGroup: (oldName: string, newName: string) => updateListItem('accountGroups', oldName, newName),
+    deleteAccountGroup: (group: string) => deleteListItem('accountGroups', group),
+    addAccountCategory: (category: string) => addListItem('accountCategories', category),
+    updateAccountCategory: (oldName: string, newName: string) => updateListItem('accountCategories', oldName, newName),
+    deleteAccountCategory: (category: string) => deleteListItem('accountCategories', category),
+    getAvailableARS,
+    getTotalARSInvestments,
+  };
+
+  return <FinanzasContext.Provider value={store}>{children}</FinanzasContext.Provider>;
+};
+
+export const useFinanzasStore = () => {
+  const context = useContext(FinanzasContext);
+  if (context === undefined) {
+    throw new Error('useFinanzasStore must be used within a FinanzasProvider');
+  }
+  return context;
+};

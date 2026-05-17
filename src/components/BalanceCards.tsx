@@ -1,5 +1,5 @@
 import React from 'react';
-import { useFinanzasStore } from "@/lib/store";
+import { useFinanzasStore } from "@/lib/store.tsx";
 
 interface BalanceCardsProps {
   totalARS: number;
