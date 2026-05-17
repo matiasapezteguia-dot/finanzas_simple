@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useFinanzasStore, Account, Movement } from "@/lib/store.tsx";
+import { useFinanzasStore } from "@/lib/store.tsx";
+import { Account, Movement } from "../types/finanzas";
 import AccountDetailModal from "@/components/AccountDetailModal";
 import DashboardKPIs from "@/components/DashboardKPIs";
 import AccountList from "@/components/AccountList";

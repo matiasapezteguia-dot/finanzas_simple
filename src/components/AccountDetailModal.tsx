@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from "react";
-import { useFinanzasStore, Movement, Account } from "@/lib/store.tsx";
+import { useFinanzasStore } from "@/lib/store.tsx";
+import { Movement, Account } from "../types/finanzas";
 
 interface AccountDetailModalProps {
   accountId: string | null;

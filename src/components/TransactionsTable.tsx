@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Account, Movement } from "@/lib/store.tsx";
+import { Account, Movement } from "../types/finanzas";
 import { ArrowUpDown } from 'lucide-react';
 
 interface TransactionsTableProps {
