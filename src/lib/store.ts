@@ -13,7 +13,7 @@ export interface Account {
 export interface Movement {
   id: string;
   description: string;
-  type: 'income' | 'expense' | 'transfer';
+  type: 'income' | 'expense' | 'transfer' | 'adjustment';
   sourceAccountId?: string;
   targetAccountId?: string;
   amount: number;
@@ -38,31 +38,45 @@ const initialState: StoreState = {
 };
 
 const loadState = (): StoreState => {
+  // Verificar si estamos en el navegador
+  if (typeof window === 'undefined') {
+    return initialState;
+  }
+
   try {
     const serializedState = localStorage.getItem(LOCAL_STORAGE_KEY);
+
     if (serializedState === null) {
       return initialState;
     }
+
     const storedState: StoreState = JSON.parse(serializedState);
+
     return {
-      ...initialState, // Merge with initial state to ensure new properties are present
+      ...initialState,
       ...storedState,
       accounts: storedState.accounts || initialState.accounts,
       accountGroups: storedState.accountGroups || initialState.accountGroups,
-      accountCategories: storedState.accountCategories || initialState.accountCategories,
+      accountCategories:
+        storedState.accountCategories || initialState.accountCategories,
     };
   } catch (error) {
-    console.error("Error loading state from localStorage:", error);
+    console.error('Error loading state from localStorage:', error);
     return initialState;
   }
 };
 
 const saveState = (state: StoreState) => {
+  // Verificar si estamos en el navegador
+  if (typeof window === 'undefined') {
+    return;
+  }
+
   try {
     const serializedState = JSON.stringify(state);
     localStorage.setItem(LOCAL_STORAGE_KEY, serializedState);
   } catch (error) {
-    console.error("Error saving state to localStorage:", error);
+    console.error('Error saving state to localStorage:', error);
   }
 };
 
@@ -110,10 +124,16 @@ export const useFinanzasStore = () => {
     let balance = account.initialAmount;
 
     state.movements.forEach(m => {
-      if (m.targetAccountId === accountId) {
-        balance += m.amount;
-      } else if (m.sourceAccountId === accountId) {
-        balance -= m.amount;
+      if (m.type === 'adjustment') {
+        if (m.targetAccountId === accountId) {
+          balance += m.amount;
+        }
+      } else { // For 'income', 'expense', 'transfer'
+        if (m.targetAccountId === accountId) {
+          balance += m.amount;
+        } else if (m.sourceAccountId === accountId) {
+          balance -= m.amount;
+        }
       }
     });
     return balance;
@@ -237,6 +257,18 @@ export const useFinanzasStore = () => {
     });
   };
 
+    const getAvailableARS = (): number => {
+      return state.accounts
+        .filter(account => account.currency === 'ARS' && (account.categoryId === 'Uso Diario' || account.categoryId === 'Efectivo'))
+        .reduce((total, account) => total + getAccountBalance(account.id), 0);
+    };
+
+    const getTotalARSInvestments = (): number => {
+      return state.accounts
+        .filter(account => account.currency === 'ARS' && account.categoryId === 'Inversiones')
+        .reduce((total, account) => total + getAccountBalance(account.id), 0);
+    };
+
     return {
       movements: state.movements,
       accounts: state.accounts,
@@ -257,5 +289,7 @@ export const useFinanzasStore = () => {
       addAccountCategory: (category: string) => addListItem('accountCategories', category),
       updateAccountCategory: (oldName: string, newName: string) => updateListItem('accountCategories', oldName, newName),
       deleteAccountCategory: (category: string) => deleteListItem('accountCategories', category),
+      getAvailableARS,
+      getTotalARSInvestments,
     };
   };

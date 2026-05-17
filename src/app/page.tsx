@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useFinanzasStore, Account, Movement } from "@/lib/store";
 import AccountDetailModal from "@/components/AccountDetailModal";
-import BalanceCards from "@/components/BalanceCards";
+import DashboardKPIs from "@/components/DashboardKPIs";
 import AccountList from "@/components/AccountList";
 import TransactionsTable from "@/components/TransactionsTable";
 
@@ -33,7 +33,7 @@ export default function Dashboard() {
   const [filterCategory, setFilterCategory] = useState<string>("all");
   const [filterStartDate, setFilterStartDate] = useState<string>("");
   const [filterEndDate, setFilterEndDate] = useState<string>("");
-  const [filterType, setFilterType] = useState<"all" | "income" | "expense" | "transfer">("all");
+  const [filterType, setFilterType] = useState<"all" | "income" | "expense" | "transfer" | "adjustment">("all");
   const [filterGroup, setFilterGroup] = useState<string>("all");
 
   const handleClearFilters = () => {
@@ -53,7 +53,7 @@ export default function Dashboard() {
   const [description, setDescription] = useState("");
   const [amount, setAmount] = useState("");
   const [currency, setCurrency] = useState<"ARS" | "USD">("ARS");
-  const [type, setType] = useState<"income" | "expense" | "transfer">("income");
+  const [type, setType] = useState<"income" | "expense" | "transfer" | "adjustment">("income");
   const [sourceAccountId, setSourceAccountId] = useState("");
   const [targetAccountId, setTargetAccountId] = useState("");
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
@@ -200,11 +200,7 @@ export default function Dashboard() {
         </button>
       </div>
 
-      <BalanceCards
-        totalARS={totalARS}
-        totalUSD={totalUSD}
-        getBalancesByCategory={getBalancesByCategory}
-      />
+      <DashboardKPIs />
 
       {/* Componente de Cuentas */}
       <AccountList
@@ -265,12 +261,13 @@ export default function Dashboard() {
                   <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Tipo</label>
                   <select 
                     value={type}
-                    onChange={(e) => setType(e.target.value as "income" | "expense")}
+                    onChange={(e) => setType(e.target.value as "income" | "expense" | "transfer" | "adjustment")}
                     className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white focus:outline-none focus:border-slate-900 text-sm"
                   >
                     <option value="income">Ingreso</option>
                     <option value="expense">Egreso</option>
                     <option value="transfer">Transferencia</option>
+                    <option value="adjustment">Ajuste</option>
                   </select>
                 </div>
                 <div className="col-span-1">

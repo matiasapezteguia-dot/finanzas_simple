@@ -13,8 +13,8 @@ interface TransactionsTableProps {
   setFilterStartDate: (date: string) => void;
   filterEndDate: string;
   setFilterEndDate: (date: string) => void;
-  filterType: "all" | "income" | "expense" | "transfer";
-  setFilterType: (type: "all" | "income" | "expense" | "transfer") => void;
+  filterType: "all" | "income" | "expense" | "transfer" | "adjustment";
+  setFilterType: (type: "all" | "income" | "expense" | "transfer" | "adjustment") => void;
   filterGroup: string;
   setFilterGroup: (group: string) => void;
   handleClearFilters: () => void;
@@ -162,13 +162,14 @@ const TransactionsTable: React.FC<TransactionsTableProps> = ({
             <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Filtrar por Tipo</label>
             <select
               value={filterType}
-              onChange={(e) => { setFilterType(e.target.value as "all" | "income" | "expense" | "transfer"); setCurrentPage(1); }}
+              onChange={(e) => { setFilterType(e.target.value as "all" | "income" | "expense" | "transfer" | "adjustment"); setCurrentPage(1); }}
               className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white focus:outline-none focus:border-slate-900 text-sm"
             >
               <option value="all">Todos</option>
               <option value="income">Ingreso</option>
               <option value="expense">Egreso</option>
               <option value="transfer">Transferencia</option>
+              <option value="adjustment">Ajuste</option>
             </select>
           </div>
           <div className="grid grid-cols-2 gap-2">
@@ -248,8 +249,8 @@ const TransactionsTable: React.FC<TransactionsTableProps> = ({
                     <td className="p-4 text-center">{displayCategory}</td>
                     <td className="p-4 text-center">{displayGroup}</td>
                     <td className="p-4 text-center">
-                      <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${m.type === 'income' ? 'bg-green-100 text-green-700' : m.type === 'expense' ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'}`}>
-                        {m.type === 'income' ? 'Ingreso' : m.type === 'expense' ? 'Egreso' : 'Transferencia'}
+                      <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${m.type === 'income' ? 'bg-green-100 text-green-700' : m.type === 'expense' ? 'bg-red-100 text-red-700' : m.type === 'transfer' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'}`}>
+                        {m.type === 'income' ? 'Ingreso' : m.type === 'expense' ? 'Egreso' : m.type === 'transfer' ? 'Transferencia' : 'Ajuste'}
                       </span>
                     </td>
                     <td className="p-4 text-center">
@@ -257,8 +258,8 @@ const TransactionsTable: React.FC<TransactionsTableProps> = ({
                         {m.currency}
                       </span>
                     </td>
-                    <td className={`p-4 text-right font-bold ${m.type === 'income' ? 'text-green-600' : m.type === 'expense' ? 'text-red-600' : 'text-blue-600'}`}>
-                      {m.type === 'income' ? '+ ' : m.type === 'expense' ? '- ' : ''}$ {Number(m.amount).toLocaleString("es-AR", { minimumFractionDigits: 2 })}
+                    <td className={`p-4 text-right font-bold ${m.type === 'income' || m.type === 'adjustment' && m.amount > 0 ? 'text-green-600' : m.type === 'expense' || m.type === 'adjustment' && m.amount < 0 ? 'text-red-600' : 'text-blue-600'}`}>
+                      {m.type === 'income' || m.type === 'adjustment' && m.amount > 0 ? '+ ' : m.type === 'expense' || m.type === 'adjustment' && m.amount < 0 ? '- ' : ''}$ {Number(m.amount).toLocaleString("es-AR", { minimumFractionDigits: 2 })}
                     </td>
                     <td className="p-4 text-center">
                       <button
