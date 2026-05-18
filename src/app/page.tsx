@@ -10,26 +10,28 @@ import TransactionsTable from "@/components/TransactionsTable";
 
 export default function Dashboard() {
   const [mounted, setMounted] = useState(false);
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   const {
     movements,
     accounts,
     addMovement,
-    deleteMovement, // Importar deleteMovement
-    getBalance,
+    deleteMovement,
     getAccountBalance,
     accountCategories,
     accountGroups,
-    getBalancesByCategory,
+    fetchInitialData, 
+    getTotalARS,      
+    getTotalUSD,      
   } = useFinanzasStore();
-  
-  const [isMovementModalOpen, setIsMovementModalOpen] = useState(false);
-  const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
+
+  useEffect(() => {
+    setMounted(true);
+    fetchInitialData(); 
+  }, [fetchInitialData]);
 
   // Estados para filtros de la tabla de movimientos
+  const [isMovementModalOpen, setIsMovementModalOpen] = useState(false);
+  const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
   const [filterAccount, setFilterAccount] = useState<string>("all");
   const [filterCategory, setFilterCategory] = useState<string>("all");
   const [filterStartDate, setFilterStartDate] = useState<string>("");
@@ -60,8 +62,8 @@ export default function Dashboard() {
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [errorMessage, setErrorMessage] = useState("");
 
-  const totalARS = getBalance("ARS");
-  const totalUSD = getBalance("USD");
+  const totalARS = getTotalARS();
+  const totalUSD = getTotalUSD();
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
@@ -87,7 +89,7 @@ export default function Dashboard() {
         setErrorMessage("La cuenta de origen y destino en una transferencia deben ser diferentes.");
         return;
       }
-      if (sourceAccount.currency !== targetAccount.currency) {
+      if (sourceAccount.moneda !== targetAccount.moneda) {
         setErrorMessage("No se permiten transferencias directas entre cuentas de distinta moneda.");
         return;
       }
@@ -110,13 +112,13 @@ export default function Dashboard() {
     const finalTargetAccountId = targetAccountId === '' ? undefined : targetAccountId;
 
     addMovement({
-      description,
-      amount: parseFloat(amount),
-      currency,
-      type: type,
+      descripcion: description,
+      monto: parseFloat(amount),
+      moneda: currency,
+      tipo: type,
       sourceAccountId: finalSourceAccountId,
       targetAccountId: finalTargetAccountId,
-      date,
+      fecha: date,
     });
 
     setDescription("");
@@ -318,8 +320,8 @@ export default function Dashboard() {
                       required={type === 'expense' || type === 'transfer'} // Requerido si es egreso o transferencia
                     >
                       <option value="">{type === 'income' ? 'Entidad Externa' : 'Seleccionar Cuenta'}</option>
-                      {accounts.filter(acc => acc.currency === currency).map((account) => (
-                        <option key={account.id} value={account.id}>{account.name} ({account.currency})</option>
+                      {accounts.filter(acc => acc.moneda === currency).map((account) => (
+                        <option key={account.id} value={account.id}>{account.nombre} ({account.moneda})</option>
                       ))}
                     </select>
                   )}
@@ -347,8 +349,8 @@ export default function Dashboard() {
                       required={type === 'income' || type === 'transfer'} // Requerido si es ingreso o transferencia
                     >
                       <option value="">{type === 'expense' ? 'Entidad Externa' : 'Seleccionar Cuenta'}</option>
-                      {accounts.filter(acc => acc.currency === currency).map((account) => (
-                        <option key={account.id} value={account.id}>{account.name} ({account.currency})</option>
+                      {accounts.filter(acc => acc.moneda === currency).map((account) => (
+                        <option key={account.id} value={account.id}>{account.nombre} ({account.moneda})</option>
                       ))}
                     </select>
                   )}

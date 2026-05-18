@@ -44,13 +44,13 @@ const AccountDetailModal: React.FC<AccountDetailModalProps> = ({ accountId, onCl
     );
 
     if (start) {
-      tempMovements = tempMovements.filter((m) => m.date >= start);
+      tempMovements = tempMovements.filter((m) => m.fecha >= start);
     }
     if (end) {
-      tempMovements = tempMovements.filter((m) => m.date <= end);
+      tempMovements = tempMovements.filter((m) => m.fecha <= end);
     }
     if (typeFilter !== "all") {
-      tempMovements = tempMovements.filter((m) => m.type === typeFilter);
+      tempMovements = tempMovements.filter((m) => m.tipo === typeFilter);
     }
 
     setFilteredMovements(tempMovements);
@@ -60,10 +60,10 @@ const AccountDetailModal: React.FC<AccountDetailModalProps> = ({ accountId, onCl
     tempMovements.forEach((m) => {
       if (m.targetAccountId === selectedAccount.id) {
         // Movement is incoming to the selected account
-        netBalance += m.amount;
+        netBalance += m.monto;
       } else if (m.sourceAccountId === selectedAccount.id) {
         // Movement is outgoing from the selected account
-        netBalance -= m.amount;
+        netBalance -= m.monto;
       }
     });
     setFilteredBalance(netBalance);
@@ -71,8 +71,9 @@ const AccountDetailModal: React.FC<AccountDetailModalProps> = ({ accountId, onCl
 
   const totalGroupBalance = useMemo(() => {
     if (!account) return { ARS: 0, USD: 0 };
-    const balances = getBalancesByGroup(account.currency);
-    return { [account.currency]: balances[account.groupId] || 0 };
+    const balances = getBalancesByGroup(account.moneda);
+    const groupBalance = account.grupo ? balances[account.grupo] || 0 : 0;
+    return { [account.moneda]: groupBalance };
   }, [account, getBalancesByGroup]);
 
   if (!accountId || !account) {
@@ -83,7 +84,7 @@ const AccountDetailModal: React.FC<AccountDetailModalProps> = ({ accountId, onCl
     <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
       <div className="bg-white w-full max-w-3xl rounded-2xl shadow-2xl border border-slate-100 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
         <div className="p-6 border-b border-slate-100 flex justify-between items-center">
-          <h3 className="text-lg font-bold text-slate-900">Detalle de Cuenta: {account.name}</h3>
+          <h3 className="text-lg font-bold text-slate-900">Detalle de Cuenta: {account.nombre}</h3>
           <button onClick={onClose} className="text-slate-500 hover:text-slate-700">
             ✕
           </button>
@@ -93,20 +94,20 @@ const AccountDetailModal: React.FC<AccountDetailModalProps> = ({ accountId, onCl
           <div className="grid grid-cols-2 gap-4 text-sm">
             <div>
               <p className="text-xs font-bold text-slate-500 uppercase">Moneda</p>
-              <p className="text-slate-900">{account.currency}</p>
+              <p className="text-slate-900">{account.moneda}</p>
             </div>
             <div>
               <p className="text-xs font-bold text-slate-500 uppercase">Saldo Actual</p>
               <p className="text-slate-900 font-bold">
-                {account.currency === "ARS" ? "$" : "US$"}{" "}
+                {account.moneda === "ARS" ? "$" : "US$"}{" "}
                 {getAccountBalance(account.id).toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </p>
             </div>
             <div className="col-span-2">
-              <p className="text-xs font-bold text-slate-500 uppercase">Total Grupo {account.groupId}</p>
+              <p className="text-xs font-bold text-slate-500 uppercase">Total Grupo {account.grupo}</p>
               <p className="text-slate-900 font-bold">
-                {account.currency === "ARS" ? "$" : "US$"}{" "}
-                {totalGroupBalance[account.currency]?.toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                {account.moneda === "ARS" ? "$" : "US$"}{" "}
+                {totalGroupBalance[account.moneda]?.toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </p>
             </div>
           </div>
@@ -148,7 +149,7 @@ const AccountDetailModal: React.FC<AccountDetailModalProps> = ({ accountId, onCl
 
           {/* Saldo del Filtro */}
           <div className="bg-blue-50 p-4 rounded-xl text-blue-800 font-bold text-center">
-            Saldo del Filtro: {account.currency === "ARS" ? "$" : "US$"}{" "}
+            Saldo del Filtro: {account.moneda === "ARS" ? "$" : "US$"}{" "}
             {filteredBalance.toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </div>
 
@@ -173,20 +174,20 @@ const AccountDetailModal: React.FC<AccountDetailModalProps> = ({ accountId, onCl
                   filteredMovements.map((m) => {
                     const isSource = m.sourceAccountId === account.id;
                     const isTarget = m.targetAccountId === account.id;
-                    const displayAmount = isSource ? -m.amount : m.amount;
+                    const displayAmount = isSource ? -m.monto : m.monto;
                     const amountClass = isSource ? "text-red-600" : "text-green-600";
 
                     return (
                       <tr key={m.id} className="hover:bg-slate-50 transition">
-                        <td className="p-3">{m.date}</td>
-                        <td className="p-3">{m.description}</td>
+                        <td className="p-3">{m.fecha}</td>
+                        <td className="p-3">{m.descripcion}</td>
                         <td className="p-3 text-center">
-                          <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${m.type === 'income' ? 'bg-green-100 text-green-700' : m.type === 'expense' ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'}`}>
-                            {m.type === 'income' ? 'Ingreso' : m.type === 'expense' ? 'Egreso' : 'Transferencia'}
+                          <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${m.tipo === 'income' ? 'bg-green-100 text-green-700' : m.tipo === 'expense' ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'}`}>
+                            {m.tipo === 'income' ? 'Ingreso' : m.tipo === 'expense' ? 'Egreso' : 'Transferencia'}
                           </span>
                         </td>
                         <td className={`p-3 text-right font-bold ${amountClass}`}>
-                          {displayAmount > 0 ? '+ ' : '- '}{account.currency === "ARS" ? "$" : "US$"}{" "}
+                          {displayAmount > 0 ? '+ ' : '- '}{account.moneda === "ARS" ? "$" : "US$"}{" "}
                           {Math.abs(displayAmount).toLocaleString("es-AR", { minimumFractionDigits: 2 })}
                         </td>
                       </tr>

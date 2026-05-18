@@ -14,13 +14,12 @@ export interface AccountCategory {
 
 export interface Account {
   id: string;
-  name: string;
-  groupId: string | null;
-  categoryId: string | null;
-  currency: MonedaType;
-  initialAmount: number;
-  currentAmount: number;
-  created_at: string;
+  nombre: string;
+  grupo: string | null;
+  categoria: string | null;
+  moneda: MonedaType;
+  montoInicial: number;
+  created_at?: string; // Optional as it might not be always fetched or used
 }
 
 export type MovementType = 'income' | 'expense' | 'transfer' | 'adjustment';
@@ -29,14 +28,14 @@ export interface Movement {
   id: string;
   cuentaId: string; // Corresponds to Supabase account_id
   tipo: MovementType; // Corresponds to Supabase movement_type
-  category_name: string | null;
+  categoria: string | null; // Corresponds to Supabase category_name
   monto: number; // Corresponds to Supabase amount
-  description: string | null;
+  descripcion: string | null; // Corresponds to Supabase description
   fecha: string; // Corresponds to Supabase movement_date
-  currency: MonedaType;
+  moneda: MonedaType; // Corresponds to Supabase currency
   sourceAccountId?: string; // For transfers
   targetAccountId?: string; // For transfers
-  created_at: string;
+  created_at?: string; // Optional as it might not be always fetched or used
 }
 
 export interface StoreState {

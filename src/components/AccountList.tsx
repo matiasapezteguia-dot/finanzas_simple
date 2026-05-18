@@ -10,7 +10,7 @@ interface AccountListProps {
 const AccountList: React.FC<AccountListProps> = ({ accounts, getAccountBalance, openAccountDetailModal }) => {
   // Agrupar cuentas por categoría
   const groupedAccounts = accounts.reduce((acc, account) => {
-    const category = account.categoryId || 'Sin Categoría'; // Asignar una categoría por defecto si no existe
+    const category = account.categoria || 'Sin Categoría'; // Asignar una categoría por defecto si no existe
     if (!acc[category]) {
       acc[category] = [];
     }
@@ -34,9 +34,9 @@ const AccountList: React.FC<AccountListProps> = ({ accounts, getAccountBalance, 
                   className="flex items-center justify-between p-2 rounded-lg border border-slate-200 text-sm transition-all cursor-pointer hover:bg-slate-50"
                   onClick={() => openAccountDetailModal(account.id)}
                 >
-                  <span className="font-medium text-slate-900">{account.name}</span>
+                  <span className="font-medium text-slate-900">{account.nombre}</span>
                   <span className="font-semibold text-slate-700">
-                    {account.currency === "ARS" ? "$" : "US$"}{" "}
+                    {account.moneda === "ARS" ? "$" : "US$"}{" "}
                     {getAccountBalance(account.id).toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </span>
                 </div>

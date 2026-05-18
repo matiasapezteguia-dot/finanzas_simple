@@ -1,14 +1,22 @@
-
 import React from 'react';
-
 import { useFinanzasStore } from '../lib/store';
 
 const DashboardKPIs: React.FC = () => {
-  const { accounts, movements, getBalance, getAvailableARS, getTotalARSInvestments } = useFinanzasStore();
+  // 1. Extraemos los nuevos métodos limpios del store optimizado
+  const { 
+    accounts, 
+    movements, 
+    getTotalARS, 
+    getTotalUSD, 
+    getAvailableARS, 
+    getTotalARSInvestments 
+  } = useFinanzasStore();
+  
   console.log("DashboardKPIs re-rendered. Movements count:", movements.length);
 
-  const totalARS = getBalance('ARS');
-  const totalUSD = getBalance('USD');
+  // 2. Asignamos las variables usando las funciones nativas
+  const totalARS = getTotalARS();
+  const totalUSD = getTotalUSD();
   const totalInversiones = getTotalARSInvestments();
   const totalDisponible = getAvailableARS();
 
@@ -32,13 +40,13 @@ const DashboardKPIs: React.FC = () => {
       {/* Tarjeta Total Disponible */}
       <div className="rounded-lg bg-indigo-600 p-4 text-white shadow-md">
         <h3 className="text-lg font-semibold">Total Disponible</h3>
-        <p className="text-2xl font-bold">{formatCurrency(totalDisponible, 'ARS')}</p> {/* Assuming available is in ARS for display */}
+        <p className="text-2xl font-bold">{formatCurrency(totalDisponible, 'ARS')}</p>
       </div>
 
       {/* Tarjeta Total Inversiones */}
       <div className="rounded-lg bg-purple-600 p-4 text-white shadow-md">
         <h3 className="text-lg font-semibold">INVERSIONES ARS</h3>
-        <p className="text-2xl font-bold">{formatCurrency(totalInversiones, 'ARS')}</p> {/* Assuming investments are in ARS for display */}
+        <p className="text-2xl font-bold">{formatCurrency(totalInversiones, 'ARS')}</p>
       </div>
 
       {/* Tarjeta Total USD */}

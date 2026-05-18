@@ -270,10 +270,15 @@ export default function ConfiguracionPage() {
             onDelete={deleteAccountGroup}
             accounts={accounts}
             renderItemExtra={(group: string) => {
-              const balancesARS = getBalancesByGroup('ARS');
-              const balancesUSD = getBalancesByGroup('USD');
-              const totalARS = balancesARS[group] || 0;
-              const totalUSD = balancesUSD[group] || 0;
+              // Calculamos el total ARS dinámicamente para este grupo
+              const totalARS = accounts
+                .filter(a => a.grupo === group && a.moneda === 'ARS')
+                .reduce((acc, a) => acc + getAccountBalance(a.id), 0);
+
+              // Calculamos el total USD dinámicamente para este grupo
+              const totalUSD = accounts
+                .filter(a => a.grupo === group && a.moneda === 'USD')
+                .reduce((acc, a) => acc + getAccountBalance(a.id), 0);            
 
               const formatCurrency = (value: number, currency: 'ARS' | 'USD') => {
                 return new Intl.NumberFormat('es-AR', {
@@ -300,11 +305,16 @@ export default function ConfiguracionPage() {
             onUpdate={updateAccountCategory}
             onDelete={deleteAccountCategory}
             accounts={accounts}
-            renderItemExtra={(category: string) => {
-              const balancesARS = getBalancesByCategory('ARS');
-              const balancesUSD = getBalancesByCategory('USD');
-              const totalARS = balancesARS[category] || 0;
-              const totalUSD = balancesUSD[category] || 0;
+           renderItemExtra={(category: string) => {
+              // Calculamos el total ARS dinámicamente para esta categoría
+              const totalARS = accounts
+                .filter(a => a.categoria === category && a.moneda === 'ARS')
+                .reduce((acc, a) => acc + getAccountBalance(a.id), 0);
+
+              // Calculamos el total USD dinámicamente para esta categoría
+              const totalUSD = accounts
+                .filter(a => a.categoria === category && a.moneda === 'USD')
+                .reduce((acc, a) => acc + getAccountBalance(a.id), 0);
 
               const formatCurrency = (value: number, currency: 'ARS' | 'USD') => {
                 return new Intl.NumberFormat('es-AR', {
