@@ -91,7 +91,7 @@ const ListManager: React.FC<{
   const isDeletable = (item: string) => {
     if (!accounts) return true; // If accounts are not provided, assume deletable
     // Check if any account uses this category or group
-    return !accounts.some(account => account.categoryId === item || account.groupId === item);
+    return !accounts.some(account => account.categoria === item || account.grupo === item);
   };
 
   return (
@@ -173,7 +173,7 @@ export default function ConfiguracionPage() {
     setMounted(true);
   }, []);
 
-  const {
+  const { 
     accountGroups,
     accountCategories,
 
@@ -188,32 +188,35 @@ export default function ConfiguracionPage() {
     deleteAccount,
     getAccountBalance,
     updateAccount,
-    getBalancesByCategory,
-    getBalancesByGroup,
+    fetchInitialData,
   } = useFinanzasStore();
 
+  useEffect(() => {
+    fetchInitialData();
+  }, [fetchInitialData]);
+
   const [newAccount, setNewAccount] = useState<Omit<Account, 'id'>>({
-    name: '',
-    initialAmount: 0,
-    date: new Date().toISOString().split('T')[0],
-    currency: 'ARS',
-    groupId: accountGroups[0] || '',
-    categoryId: accountCategories[0] || '',
+    nombre: '',
+    montoInicial: 0,
+    // date: new Date().toISOString().split('T')[0], // No longer needed as per Account interface
+    moneda: 'ARS',
+    grupo: accountGroups[0] || '',
+    categoria: accountCategories[0] || '',
   });
 
   const [editingAccountId, setEditingAccountId] = useState<string | null>(null);
   const [editedAccount, setEditedAccount] = useState<Account | null>(null);
 
   const handleAddAccount = () => {
-    if (newAccount.name && newAccount.initialAmount >= 0 && newAccount.groupId && newAccount.categoryId) {
+    if (newAccount.nombre && newAccount.montoInicial >= 0 && newAccount.grupo && newAccount.categoria) {
       addAccount(newAccount);
       setNewAccount({
-        name: '',
-        initialAmount: 0,
-        date: new Date().toISOString().split('T')[0],
-        currency: 'ARS',
-        groupId: accountGroups[0] || '',
-        categoryId: accountCategories[0] || '',
+        nombre: '',
+        montoInicial: 0,
+        // date: new Date().toISOString().split('T')[0], // No longer needed
+        moneda: 'ARS',
+        grupo: accountGroups[0] || '',
+        categoria: accountCategories[0] || '',
       });
     }
   };
@@ -343,8 +346,8 @@ export default function ConfiguracionPage() {
                   type="text"
                   id="accountName"
                   className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                  value={newAccount.name}
-                  onChange={(e) => setNewAccount({ ...newAccount, name: e.target.value })}
+                  value={newAccount.nombre}
+                  onChange={(e) => setNewAccount({ ...newAccount, nombre: e.target.value })}
                 />
               </div>
               <div>
@@ -353,18 +356,8 @@ export default function ConfiguracionPage() {
                   type="number"
                   id="initialAmount"
                   className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                  value={newAccount.initialAmount}
-                  onChange={(e) => setNewAccount({ ...newAccount, initialAmount: parseFloat(e.target.value) })}
-                />
-              </div>
-              <div>
-                <label htmlFor="accountDate" className="block text-sm font-medium text-gray-700">Fecha</label>
-                <input
-                  type="date"
-                  id="accountDate"
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                  value={newAccount.date}
-                  onChange={(e) => setNewAccount({ ...newAccount, date: e.target.value })}
+                  value={newAccount.montoInicial}
+                  onChange={(e) => setNewAccount({ ...newAccount, montoInicial: parseFloat(e.target.value) })}
                 />
               </div>
               <div>
@@ -372,8 +365,8 @@ export default function ConfiguracionPage() {
                 <select
                   id="accountCurrency"
                   className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                  value={newAccount.currency}
-                  onChange={(e) => setNewAccount({ ...newAccount, currency: e.target.value as 'ARS' | 'USD' })}
+                  value={newAccount.moneda}
+                  onChange={(e) => setNewAccount({ ...newAccount, moneda: e.target.value as 'ARS' | 'USD' })}
                 >
                   <option value="ARS">ARS</option>
                   <option value="USD">USD</option>
@@ -384,8 +377,8 @@ export default function ConfiguracionPage() {
                 <select
                   id="accountGroup"
                   className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                  value={newAccount.groupId}
-                  onChange={(e) => setNewAccount({ ...newAccount, groupId: e.target.value })}
+                  value={newAccount.grupo}
+                  onChange={(e) => setNewAccount({ ...newAccount, grupo: e.target.value })}
                 >
                   {accountGroups.map((group) => (
                     <option key={group} value={group}>{group}</option>
@@ -397,8 +390,8 @@ export default function ConfiguracionPage() {
                 <select
                   id="accountCategory"
                   className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                  value={newAccount.categoryId}
-                  onChange={(e) => setNewAccount({ ...newAccount, categoryId: e.target.value })}
+                  value={newAccount.categoria}
+                  onChange={(e) => setNewAccount({ ...newAccount, categoria: e.target.value })}
                 >
                   {accountCategories.map((category) => (
                     <option key={category} value={category}>{category}</option>
@@ -433,11 +426,18 @@ export default function ConfiguracionPage() {
                       <tr key={account.id}>
                         {editingAccountId === account.id ? (
                           <>
-
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <input
+                                type="text"
+                                value={editedAccount?.nombre || ''}
+                                onChange={(e) => setEditedAccount({ ...editedAccount!, nombre: e.target.value })}
+                                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                              />
+                            </td>
                             <td className="px-6 py-4 whitespace-nowrap">
                               <select
-                                value={editedAccount?.currency || 'ARS'}
-                                onChange={(e) => setEditedAccount({ ...editedAccount!, currency: e.target.value as 'ARS' | 'USD' })}
+                                value={editedAccount?.moneda || 'ARS'}
+                                onChange={(e) => setEditedAccount({ ...editedAccount!, moneda: e.target.value as 'ARS' | 'USD' })}
                                 className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                               >
                                 <option value="ARS">ARS</option>
@@ -447,27 +447,18 @@ export default function ConfiguracionPage() {
                             <td className="px-6 py-4 whitespace-nowrap">
                               <input
                                 type="number"
-                                value={editedAccount?.initialAmount || 0}
-                                onChange={(e) => setEditedAccount({ ...editedAccount!, initialAmount: parseFloat(e.target.value) })}
+                                value={editedAccount?.montoInicial || 0}
+                                onChange={(e) => setEditedAccount({ ...editedAccount!, montoInicial: parseFloat(e.target.value) })}
                                 className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                               />
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-bold">
-                              {new Intl.NumberFormat('es-AR', { style: 'currency', currency: editedAccount?.currency || 'ARS', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(getAccountBalance(account.id))}
+                              {new Intl.NumberFormat('es-AR', { style: 'currency', currency: editedAccount?.moneda || 'ARS', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(getAccountBalance(account.id))}
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <input
-                                type="text"
-                                value={editedAccount?.name || ''}
-                                onChange={(e) => setEditedAccount({ ...editedAccount!, name: e.target.value })}
-                                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                              />
-                            </td>
-
                             <td className="px-6 py-4 whitespace-nowrap">
                               <select
-                                value={editedAccount?.groupId || ''}
-                                onChange={(e) => setEditedAccount({ ...editedAccount!, groupId: e.target.value })}
+                                value={editedAccount?.grupo || ''}
+                                onChange={(e) => setEditedAccount({ ...editedAccount!, grupo: e.target.value })}
                                 className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                               >
                                 {accountGroups.map((group) => (
@@ -477,8 +468,8 @@ export default function ConfiguracionPage() {
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
                               <select
-                                value={editedAccount?.categoryId || ''}
-                                onChange={(e) => setEditedAccount({ ...editedAccount!, categoryId: e.target.value })}
+                                value={editedAccount?.categoria || ''}
+                                onChange={(e) => setEditedAccount({ ...editedAccount!, categoria: e.target.value })}
                                 className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                               >
                                 {accountCategories.map((category) => (
@@ -503,14 +494,14 @@ export default function ConfiguracionPage() {
                           </>
                         ) : (
                           <>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{account.name}</td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{account.currency}</td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{account.initialAmount.toLocaleString("es-AR", { minimumFractionDigits: 2 })}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{account.nombre}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{account.moneda}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{account.montoInicial.toLocaleString("es-AR", { minimumFractionDigits: 2 })}</td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-bold">
-                              {new Intl.NumberFormat('es-AR', { style: 'currency', currency: account.currency, minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(getAccountBalance(account.id))}
+                              {new Intl.NumberFormat('es-AR', { style: 'currency', currency: account.moneda, minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(getAccountBalance(account.id))}
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{account.groupId}</td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{account.categoryId}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{account.grupo}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{account.categoria}</td>
                             <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                               <button
                                 onClick={() => handleEditAccount(account)}
