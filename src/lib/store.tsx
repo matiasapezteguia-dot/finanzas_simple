@@ -4,6 +4,34 @@ import { Account, Movement, StoreState, FinanzasStoreContextType, MonedaType } f
 
 const LOCAL_STORAGE_KEY = 'finanzasStore';
 
+// Helper function to get account group ID by name
+const getAccountGroupIdByName = async (name: string): Promise<string | null> => {
+  const { data, error } = await supabase
+    .from('account_groups')
+    .select('id')
+    .eq('name', name)
+    .single();
+  if (error) {
+    console.error('Error fetching account group ID:', error);
+    return null;
+  }
+  return data?.id || null;
+};
+
+// Helper function to get account category ID by name
+const getAccountCategoryIdByName = async (name: string): Promise<string | null> => {
+  const { data, error } = await supabase
+    .from('account_categories')
+    .select('id')
+    .eq('name', name)
+    .single();
+  if (error) {
+    console.error('Error fetching account category ID:', error);
+    return null;
+  }
+  return data?.id || null;
+};
+
 const initialState: StoreState = {
   movements: [],
   accounts: [],
@@ -118,6 +146,7 @@ export const FinanzasProvider: React.FC<{ children: ReactNode }> = ({ children }
   const addMovement = async (movement: Omit<Movement, 'id' | 'created_at'>) => {
     const newMovement: Movement = {
       ...movement,
+      monto: Number(movement.monto), // Ensure monto is a number
       id: Date.now().toString(),
       created_at: new Date().toISOString(),
     };
@@ -127,24 +156,28 @@ export const FinanzasProvider: React.FC<{ children: ReactNode }> = ({ children }
     });
 
     // Insert into Supabase
-    const { error } = await supabase.from('movements').insert([
-      {
-        id: newMovement.id,
-        account_id: newMovement.cuentaId,
-        movement_type: newMovement.tipo,
-        category_name: newMovement.category_name,
-        amount: newMovement.monto,
-        description: newMovement.description,
-        movement_date: newMovement.fecha,
-        currency: newMovement.currency,
-        source_account_id: newMovement.sourceAccountId,
-        target_account_id: newMovement.targetAccountId,
-        created_at: newMovement.created_at,
-      },
-    ]);
+    try {
+      const { error } = await supabase.from('movements').insert([
+        {
+          id: newMovement.id,
+          account_id: newMovement.cuentaId,
+          movement_type: newMovement.tipo,
+          amount: newMovement.monto, // Already converted to number above
+          description: newMovement.description,
+          movement_date: newMovement.fecha,
+          category_name: newMovement.category_name, // Mapped from 'categoria'
+          currency: newMovement.currency,
+          source_account_id: newMovement.sourceAccountId,
+          target_account_id: newMovement.targetAccountId,
+          created_at: newMovement.created_at,
+        },
+      ]);
 
-    if (error) {
-      console.error('Error inserting movement into Supabase:', error);
+      if (error) {
+        console.error('Error inserting movement into Supabase:', error);
+      }
+    } catch (error) {
+      console.error('Network or unexpected error inserting movement into Supabase:', error);
     }
   };
 
@@ -253,17 +286,52 @@ export const FinanzasProvider: React.FC<{ children: ReactNode }> = ({ children }
     });
   };
 
-  const addAccount = (account: Omit<Account, 'id' | 'created_at' | 'currentAmount'>) => {
-    const newAccount: Account = {
-      ...account,
-      id: Date.now().toString(),
-      currentAmount: account.initialAmount, // Initialize currentAmount
-      created_at: new Date().toISOString(),
+  const addAccount = async (account: Omit<Account, 'id' | 'created_at' | 'currentAmount'>) => {
+    // Fetch group_id and category_id from Supabase
+    const groupId = account.groupId ? await getAccountGroupIdByName(account.groupId) : null;
+    const categoryId = account.categoryId ? await getAccountCategoryIdByName(account.categoryId) : null;
+
+    const newAccountForSupabase = {
+      name: account.name,
+      group_id: groupId,
+      category_id: categoryId,
+      currency: account.currency,
+      initial_amount: Number(account.initialAmount),
+      current_amount: Number(account.initialAmount),
     };
-    setState((prevState) => ({
-      ...prevState,
-      accounts: [...prevState.accounts, newAccount],
-    }));
+
+    try {
+      const { data, error } = await supabase
+        .from('accounts')
+        .insert([newAccountForSupabase])
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error inserting account into Supabase:', error);
+        return;
+      }
+
+      if (data) {
+        const newAccount: Account = {
+          id: data.id,
+          name: data.name,
+          groupId: data.group_id,
+          categoryId: data.category_id,
+          currency: data.currency,
+          initialAmount: data.initial_amount,
+          currentAmount: data.current_amount,
+          created_at: data.created_at,
+        };
+
+        setState((prevState) => ({
+          ...prevState,
+          accounts: [...prevState.accounts, newAccount],
+        }));
+      }
+    } catch (error) {
+      console.error('Network or unexpected error inserting account into Supabase:', error);
+    }
   };
 
   const updateAccount = (updatedAccount: Account) => {
