@@ -1,4 +1,5 @@
 import { useState, useEffect, createContext, useContext, ReactNode } from 'react';
+import { supabase } from '../lib/supabaseClient';
 import { Account, Movement, StoreState, FinanzasStoreContextType, MonedaType } from '../types/finanzas';
 
 const LOCAL_STORAGE_KEY = 'finanzasStore';
@@ -56,16 +57,95 @@ export const FinanzasProvider: React.FC<{ children: ReactNode }> = ({ children }
     saveState(state);
   }, [state]);
 
-  const addMovement = (movement: Omit<Movement, 'id'>) => {
+  useEffect(() => {
+    const fetchInitialData = async () => {
+      let fetchedAccountGroups: string[] = initialState.accountGroups;
+      let fetchedAccountCategories: string[] = initialState.accountCategories;
+
+      try {
+        const { data: groupsData, error: groupsError } = await supabase
+          .from('account_groups')
+          .select('name');
+        if (groupsError) {
+          console.error('Error fetching account groups:', groupsError);
+        } else if (groupsData) {
+          fetchedAccountGroups = groupsData.map((g: { name: string }) => g.name);
+        }
+
+        const { data: categoriesData, error: categoriesError } = await supabase
+          .from('account_categories')
+          .select('name');
+        if (categoriesError) {
+          console.error('Error fetching account categories:', categoriesError);
+        } else if (categoriesData) {
+          fetchedAccountCategories = categoriesData.map((c: { name: string }) => c.name);
+        }
+      } catch (error) {
+        console.error('Network or unexpected error fetching initial data:', error);
+        // Fallback to initial state values already set
+      } finally {
+        setState((prevState) => ({
+          ...prevState,
+          accountGroups: fetchedAccountGroups,
+          accountCategories: fetchedAccountCategories,
+        }));
+      }
+
+      const { data, error } = await supabase.from('movements').select('*');
+      if (error) {
+        console.error('Error fetching movements:', error);
+      } else if (data) {
+        const mappedMovements: Movement[] = data.map((m: any) => ({
+          id: m.id,
+          cuentaId: m.account_id,
+          tipo: m.movement_type,
+          category_name: m.category_name,
+          monto: m.amount,
+          description: m.description,
+          fecha: m.movement_date,
+          currency: m.currency,
+          sourceAccountId: m.source_account_id,
+          targetAccountId: m.target_account_id,
+          created_at: m.created_at,
+        }));
+        setState((prevState) => ({ ...prevState, movements: mappedMovements }));
+      }
+    };
+
+    fetchInitialData();
+  }, []); // Empty dependency array means this effect runs once on mount
+
+  const addMovement = async (movement: Omit<Movement, 'id' | 'created_at'>) => {
     const newMovement: Movement = {
       ...movement,
       id: Date.now().toString(),
+      created_at: new Date().toISOString(),
     };
     setState((prevState) => {
       const newState = { ...prevState, movements: [...prevState.movements, newMovement] };
-      // No es necesario actualizar el balance de la cuenta aquí, ya que getAccountBalance lo calcula dinámicamente.
       return newState;
     });
+
+    // Insert into Supabase
+    const { error } = await supabase.from('movements').insert([
+      {
+        id: newMovement.id,
+        account_id: newMovement.cuentaId,
+        movement_type: newMovement.tipo,
+        category_name: newMovement.category_name,
+        amount: newMovement.monto,
+        description: newMovement.description,
+        movement_date: newMovement.fecha,
+        currency: newMovement.currency,
+        source_account_id: newMovement.sourceAccountId,
+        target_account_id: newMovement.targetAccountId,
+        created_at: newMovement.created_at,
+      },
+    ]);
+
+    if (error) {
+      console.error('Error inserting movement into Supabase:', error);
+    }
   };
 
   const getBalance = (currency: MonedaType): number => {
@@ -83,15 +163,16 @@ export const FinanzasProvider: React.FC<{ children: ReactNode }> = ({ children }
     state.movements
       .filter(m => m.currency === account.currency) // Filter movements by account currency
       .forEach(m => {
-        if (m.type === 'adjustment') {
+        if (m.tipo === 'adjustment') {
           if (m.targetAccountId === accountId) {
-            balance += m.amount;
+            balance += m.monto;
           }
         } else { // For 'income', 'expense', 'transfer'
           if (m.targetAccountId === accountId) {
-            balance += m.amount;
-          } else if (m.sourceAccountId === accountId) {
-            balance -= m.amount;
+            balance += m.monto;
+          }
+          if (m.sourceAccountId === accountId) {
+            balance -= m.monto;
           }
         }
       });
@@ -108,7 +189,9 @@ export const FinanzasProvider: React.FC<{ children: ReactNode }> = ({ children }
       .filter(account => account.currency === currency)
       .forEach(account => {
         const currentBalance = getAccountBalance(account.id);
-        balances[account.groupId] += currentBalance;
+        if (account.groupId) {
+          balances[account.groupId] += currentBalance;
+        }
       });
     return balances;
   };
@@ -123,7 +206,9 @@ export const FinanzasProvider: React.FC<{ children: ReactNode }> = ({ children }
       .filter(account => account.currency === currency)
       .forEach(account => {
         const currentBalance = getAccountBalance(account.id);
-        balances[account.categoryId] += currentBalance;
+        if (account.categoryId) {
+          balances[account.categoryId] += currentBalance;
+        }
       });
     return balances;
   };
@@ -168,10 +253,12 @@ export const FinanzasProvider: React.FC<{ children: ReactNode }> = ({ children }
     });
   };
 
-  const addAccount = (account: Omit<Account, 'id'>) => {
+  const addAccount = (account: Omit<Account, 'id' | 'created_at' | 'currentAmount'>) => {
     const newAccount: Account = {
       ...account,
       id: Date.now().toString(),
+      currentAmount: account.initialAmount, // Initialize currentAmount
+      created_at: new Date().toISOString(),
     };
     setState((prevState) => ({
       ...prevState,

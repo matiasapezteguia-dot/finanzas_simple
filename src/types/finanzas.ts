@@ -1,4 +1,4 @@
-export type CurrencyType = 'ARS' | 'USD';
+export type MonedaType = 'ARS' | 'USD';
 
 export interface AccountGroup {
   id: string;
@@ -15,11 +15,11 @@ export interface AccountCategory {
 export interface Account {
   id: string;
   name: string;
-  group_id: string | null;
-  category_id: string | null;
-  currency: CurrencyType;
-  initial_amount: number;
-  current_amount: number;
+  groupId: string | null;
+  categoryId: string | null;
+  currency: MonedaType;
+  initialAmount: number;
+  currentAmount: number;
   created_at: string;
 }
 
@@ -27,38 +27,41 @@ export type MovementType = 'income' | 'expense' | 'transfer' | 'adjustment';
 
 export interface Movement {
   id: string;
-  account_id: string;
-  movement_type: MovementType;
+  cuentaId: string; // Corresponds to Supabase account_id
+  tipo: MovementType; // Corresponds to Supabase movement_type
   category_name: string | null;
-  amount: number;
+  monto: number; // Corresponds to Supabase amount
   description: string | null;
-  movement_date: string;
+  fecha: string; // Corresponds to Supabase movement_date
+  currency: MonedaType;
+  sourceAccountId?: string; // For transfers
+  targetAccountId?: string; // For transfers
   created_at: string;
 }
 
 export interface StoreState {
   movements: Movement[];
   accounts: Account[];
-  accountGroups: AccountGroup[];
-  accountCategories: AccountCategory[];
+  accountGroups: string[]; // Changed to string[] to match initialState in store.tsx
+  accountCategories: string[]; // Changed to string[] to match initialState in store.tsx
 }
 
 export interface FinanzasStoreContextType extends StoreState {
   addMovement: (movement: Omit<Movement, 'id' | 'created_at'>) => void;
   deleteMovement: (id: string) => void;
-  getBalance: (currency: CurrencyType) => number;
+  getBalance: (currency: MonedaType) => number;
   getAccountBalance: (accountId: string) => number;
-  getBalancesByGroup: (currency: CurrencyType) => { [key: string]: number };
-  getBalancesByCategory: (currency: CurrencyType) => { [key: string]: number };
-  addAccount: (account: Omit<Account, 'id' | 'created_at' | 'current_amount'>) => void;
+  getBalancesByGroup: (currency: MonedaType) => { [key: string]: number };
+  getBalancesByCategory: (currency: MonedaType) => { [key: string]: number };
+  addAccount: (account: Omit<Account, 'id' | 'created_at' | 'currentAmount'>) => void;
   updateAccount: (updatedAccount: Account) => void;
   deleteAccount: (id: string) => void;
-  addAccountGroup: (group: Omit<AccountGroup, 'id' | 'created_at'>) => void;
-  updateAccountGroup: (id: string, newName: string) => void;
-  deleteAccountGroup: (id: string) => void;
-  addAccountCategory: (category: Omit<AccountCategory, 'id' | 'created_at'>) => void;
-  updateAccountCategory: (id: string, newName: string) => void;
-  deleteAccountCategory: (id: string) => void;
+  addAccountGroup: (group: string) => void; // Changed to string
+  updateAccountGroup: (oldName: string, newName: string) => void;
+  deleteAccountGroup: (group: string) => void; // Changed to string
+  addAccountCategory: (category: string) => void; // Changed to string
+  updateAccountCategory: (oldName: string, newName: string) => void;
+  deleteAccountCategory: (category: string) => void; // Changed to string
   getAvailableARS: () => number;
   getTotalARSInvestments: () => number;
 }
