@@ -12,7 +12,7 @@ const DashboardKPIs: React.FC = () => {
     getTotalARSInvestments 
   } = useFinanzasStore();
   
-  console.log("DashboardKPIs re-rendered. Movements count:", movements.length);
+
 
   // 2. Asignamos las variables usando las funciones nativas
   const totalARS = getTotalARS();

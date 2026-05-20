@@ -103,7 +103,7 @@ const ListManager: React.FC<{
           className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
           value={newItem}
           onChange={(e) => setNewItem(e.target.value)}
-          placeholder={`Nuevo ${title.slice(0, -1)}`}
+          placeholder={`Nueva ${title.slice(0, -1)}`}
         />
         <button
           onClick={handleAdd}

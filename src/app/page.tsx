@@ -10,26 +10,30 @@ import TransactionsTable from "@/components/TransactionsTable";
 
 export default function Dashboard() {
   const [mounted, setMounted] = useState(false);
+  
+  // Guardamos tanto el ID como el Código explícito en estados locales directos
+  const [selectedMovementTypeId, setSelectedMovementTypeId] = useState<string>('');
+  const [selectedMovementTypeCode, setSelectedMovementTypeCode] = useState<string>('ingreso');
 
-  const {
-    movements,
-    accounts,
-    addMovement,
-    deleteMovement,
-    getAccountBalance,
-    accountCategories,
-    accountGroups,
-    fetchInitialData, 
-    getTotalARS,      
-    getTotalUSD,      
-  } = useFinanzasStore();
+  const { movements, accounts, addMovement, deleteMovement, getAccountBalance, accountCategories, accountGroups, fetchInitialData, getTotalARS, getTotalUSD, movementTypes } = useFinanzasStore();
+
+  useEffect(() => {
+    fetchInitialData();
+  }, []);
 
   useEffect(() => {
     setMounted(true);
-    fetchInitialData(); 
-  }, [fetchInitialData]);
+    // Forzar inicialización limpia cuando cargan los tipos de Supabase
+    if (movementTypes.length > 0 && !selectedMovementTypeId) {
+      const defaultIncomeType = movementTypes.find(mt => mt.code === 'ingreso');
+      if (defaultIncomeType) {
+        setSelectedMovementTypeId(defaultIncomeType.id);
+        setSelectedMovementTypeCode('ingreso');
+      }
+    }
+  }, [movementTypes, selectedMovementTypeId]);
 
-  // Estados para filtros de la tabla de movimientos
+  // Filtros de la tabla
   const [isMovementModalOpen, setIsMovementModalOpen] = useState(false);
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
   const [filterAccount, setFilterAccount] = useState<string>("all");
@@ -46,87 +50,128 @@ export default function Dashboard() {
     setFilterEndDate("");
     setFilterType("all");
     setFilterGroup("all");
-    // setCurrentPage(1); // Removed as pagination is now in TransactionsTable
   };
 
-  // Estados para paginación (moved to TransactionsTable)
-  const [currentPage, setCurrentPage] = useState(1); // Kept for modal logic, but will be passed to TransactionsTable
-  const movementsPerPage = 10; // Kept for modal logic, but will be passed to TransactionsTable
+  const [currentPage, setCurrentPage] = useState(1);
+  const movementsPerPage = 10;
 
+  // Estados del Formulario
   const [description, setDescription] = useState("");
   const [amount, setAmount] = useState("");
   const [currency, setCurrency] = useState<"ARS" | "USD">("ARS");
-  const [type, setType] = useState<"income" | "expense" | "transfer" | "adjustment">("income");
+  
   const [sourceAccountId, setSourceAccountId] = useState("");
   const [targetAccountId, setTargetAccountId] = useState("");
+  const [sourceAccountText, setSourceAccountText] = useState("");
+  const [targetAccountText, setTargetAccountText] = useState("");
+  
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [errorMessage, setErrorMessage] = useState("");
 
   const totalARS = getTotalARS();
   const totalUSD = getTotalUSD();
 
+  // MATRIZ CONTABLE CORREGIDA - Evaluación de bloqueos infalible
+  const isSelectOrigenDisabled = selectedMovementTypeCode === 'ingreso' || selectedMovementTypeCode === 'ajuste';
+  const isTextOrigenDisabled = selectedMovementTypeCode === 'egreso' || selectedMovementTypeCode === 'transferencia' || selectedMovementTypeCode === 'ajuste';
+
+  const isSelectDestinoDisabled = selectedMovementTypeCode === 'egreso' || selectedMovementTypeCode === 'ajuste';
+  const isTextDestinoDisabled = selectedMovementTypeCode === 'ingreso' || selectedMovementTypeCode === 'transferencia' || selectedMovementTypeCode === 'ajuste';
+
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage("");
 
-    if (!description || !amount || (!sourceAccountId && !targetAccountId)) {
-      setErrorMessage("Por favor, completá la descripción, el monto y al menos una cuenta de origen o destino.");
+    if (!selectedMovementTypeId) {
+      setErrorMessage("Por favor, seleccioná un tipo de movimiento válido.");
       return;
     }
 
-    const isSourceAccountSystem = accounts.some(acc => acc.id === sourceAccountId);
-    const isTargetAccountSystem = accounts.some(acc => acc.id === targetAccountId);
+    if (!description || !amount) {
+      setErrorMessage("Por favor, completá la descripción y el monto.");
+      return;
+    }
 
-    // REGLA 1 (Validación de Monedas en Transferencias)
-    if (type === 'transfer') {
-      const sourceAccount = accounts.find(acc => acc.id === sourceAccountId);
-      const targetAccount = accounts.find(acc => acc.id === targetAccountId);
-      if (!sourceAccount || !targetAccount) {
-        setErrorMessage("Para una transferencia, ambas cuentas (origen y destino) deben ser cuentas del sistema.");
+    let finalSource: string | undefined = undefined;
+    let finalTarget: string | undefined = undefined;
+    let finalMovementAccountId: string = "";
+    let finalCategory: string | null = null;
+    let extraInfo = "";
+
+    if (selectedMovementTypeCode === 'ingreso') {
+      if (!targetAccountId) {
+        setErrorMessage("Debés seleccionar una cuenta destino del sistema.");
+        return;
+      }
+      finalSource = sourceAccountText || undefined;
+      finalTarget = targetAccountId;
+      finalMovementAccountId = targetAccountId;
+      if (sourceAccountText) extraInfo = ` (Origen: ${sourceAccountText})`;
+
+    } else if (selectedMovementTypeCode === 'egreso') {
+      if (!sourceAccountId) {
+        setErrorMessage("Debés seleccionar una cuenta origen del sistema.");
+        return;
+      }
+      finalSource = sourceAccountId;
+      finalTarget = targetAccountText || undefined;
+      finalMovementAccountId = sourceAccountId;
+      if (targetAccountText) extraInfo = ` (Destino: ${targetAccountText})`;
+
+    } else if (selectedMovementTypeCode === 'transferencia') {
+      if (!sourceAccountId || !targetAccountId) {
+        setErrorMessage("Para transferencias debés seleccionar origen y destino del sistema.");
         return;
       }
       if (sourceAccountId === targetAccountId) {
-        setErrorMessage("La cuenta de origen y destino en una transferencia deben ser diferentes.");
+        setErrorMessage("La cuenta origen y destino no pueden ser iguales.");
         return;
       }
-      if (sourceAccount.moneda !== targetAccount.moneda) {
-        setErrorMessage("No se permiten transferencias directas entre cuentas de distinta moneda.");
+      finalSource = sourceAccountId;
+      finalTarget = targetAccountId;
+      finalMovementAccountId = sourceAccountId;
+
+    } else if (selectedMovementTypeCode === 'ajuste') {
+      const referenceAccount = targetAccountId || sourceAccountId;
+      if (!referenceAccount) {
+        setErrorMessage("Seleccioná al menos una cuenta del sistema para aplicar el ajuste.");
         return;
       }
+      finalSource = referenceAccount;
+      finalTarget = referenceAccount;
+      finalMovementAccountId = referenceAccount;
     }
 
-    // REGLA 2 (Antiduplicación)
-    if ((type === 'income' || type === 'expense') && isSourceAccountSystem && isTargetAccountSystem) {
-      setErrorMessage("Para movimientos entre dos cuentas del sistema, debés seleccionar el tipo 'Transferencia'.");
+    const systemAccount = accounts.find(acc => acc.id === finalMovementAccountId);
+    if (systemAccount && systemAccount.moneda !== currency) {
+      setErrorMessage(`La cuenta elegida opera en ${systemAccount.moneda}. No coincide con la moneda seleccionada.`);
       return;
     }
 
-    // REGLA 3 (Impacto Cero Prohibido)
-    if (!isSourceAccountSystem && !isTargetAccountSystem) {
-      setErrorMessage("El movimiento debe impactar al menos en una cuenta del sistema.");
-      return;
+    if (systemAccount) {
+      finalCategory = systemAccount.categoria;
     }
-
-    // Ajustar sourceAccountId y targetAccountId para el guardado, convirtiendo string vacío a undefined
-    const finalSourceAccountId = sourceAccountId === '' ? undefined : sourceAccountId;
-    const finalTargetAccountId = targetAccountId === '' ? undefined : targetAccountId;
 
     addMovement({
-      descripcion: description,
+      descripcion: description + extraInfo,
       monto: parseFloat(amount),
       moneda: currency,
-      tipo: type,
-      sourceAccountId: finalSourceAccountId,
-      targetAccountId: finalTargetAccountId,
+      movement_type_id: selectedMovementTypeId,
+      cuentaId: finalMovementAccountId,
+      categoria: finalCategory,
+      sourceAccountId: finalSource,
+      targetAccountId: finalTarget,
       fecha: date,
     });
 
+    // Limpieza
     setDescription("");
     setAmount("");
     setCurrency("ARS");
-    setType("income");
     setSourceAccountId("");
     setTargetAccountId("");
+    setSourceAccountText("");
+    setTargetAccountText("");
     setDate(new Date().toISOString().split('T')[0]);
     setIsMovementModalOpen(false);
   };
@@ -139,56 +184,10 @@ export default function Dashboard() {
     setSelectedAccountId(null);
   };
 
-  if (!mounted) {
-    return null; // O un spinner
-  }
-
-      // Lógica de filtrado y paginación (moved to TransactionsTable)
-      // const filteredAndSortedMovements = movements
-      //   .filter(m => {
-      //     const movementDate = new Date(m.date);
-      //     movementDate.setHours(0, 0, 0, 0); // Ignorar la hora para la comparación
-
-      //     const start = filterStartDate ? new Date(filterStartDate) : null;
-      //     if (start) start.setHours(0, 0, 0, 0);
-
-      //     const end = filterEndDate ? new Date(filterEndDate) : null;
-      //     if (end) end.setHours(0, 0, 0, 0);
-
-      //     // Filtro por cuenta
-      //     const accountMatches = filterAccount === 'all' || m.sourceAccountId === filterAccount || m.targetAccountId === filterAccount;
-      //     if (!accountMatches) return false;
-
-      //     // Filtro por categoría
-      //     const sourceAccount = accounts.find(acc => acc.id === m.sourceAccountId);
-      //     const targetAccount = accounts.find(acc => acc.id === m.targetAccountId);
-      //     const categoryMatches = filterCategory === 'all' || 
-      //                             (sourceAccount && sourceAccount.categoryId === filterCategory) || 
-      //                             (targetAccount && targetAccount.categoryId === filterCategory);
-      //     if (!categoryMatches) return false;
-
-      //     // Filtro por tipo de movimiento
-      //     const typeMatches = filterType === 'all' || m.type === filterType;
-      //     if (!typeMatches) return false;
-
-      //     // Filtro por rango de fechas
-      //     const dateMatches = (!start || movementDate >= start) && (!end || movementDate <= end);
-      //     if (!dateMatches) return false;
-
-      //     return true;
-      //   })
-      //   .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()); // Ordenar por fecha descendente
-
-  // Paginación (moved to TransactionsTable)
-  // const indexOfLastMovement = currentPage * movementsPerPage;
-  // const indexOfFirstMovement = indexOfLastMovement - movementsPerPage;
-  // const currentMovements = filteredAndSortedMovements.slice(indexOfFirstMovement, indexOfLastMovement);
-  // const totalPages = Math.ceil(filteredAndSortedMovements.length / movementsPerPage);
-
-  // const paginate = (pageNumber: number) => setCurrentPage(pageNumber);
+  if (!mounted) return null;
 
   return (
-  <div className="p-8 w-full mx-auto space-y-6 bg-slate-50 min-h-screen">
+    <div className="p-8 w-full mx-auto space-y-6 bg-slate-50 min-h-screen">
       {/* Encabezado */}
       <div className="flex justify-between items-center mb-6">
         <div>
@@ -199,13 +198,12 @@ export default function Dashboard() {
           onClick={() => setIsMovementModalOpen(true)}
           className="bg-slate-900 text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-slate-800 transition"
         >
-          + Nuevo Registro
+          + Nueva entrada
         </button>
       </div>
 
       <DashboardKPIs />
 
-      {/* Componente de Cuentas */}
       <AccountList
         accounts={accounts}
         getAccountBalance={getAccountBalance}
@@ -236,13 +234,12 @@ export default function Dashboard() {
         accountGroups={accountGroups}
       />
 
-
-      {/* MODAL INTERACTIVO DE REGISTRO */}
+      {/* MODAL INTERACTIVO FUNCIONAL */}
       {isMovementModalOpen && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-slate-100 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
             <div className="p-6 border-b border-slate-100">
-              <h3 className="text-lg font-bold text-slate-900">Agregar Nuevo Registro</h3>
+              <h3 className="text-lg font-bold text-slate-900">Agregar Nueva entrada</h3>
               <p className="text-xs text-slate-500">Ingresá los datos reales del movimiento de caja</p>
             </div>
             
@@ -260,20 +257,30 @@ export default function Dashboard() {
               </div>
 
               <div className="grid grid-cols-3 gap-4">
-                <div className="col-span-1">
+                <div>
                   <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Tipo</label>
                   <select 
-                    value={type}
-                    onChange={(e) => setType(e.target.value as "income" | "expense" | "transfer" | "adjustment")}
+                    value={selectedMovementTypeId}
+                    onChange={(e) => {
+                      const targetId = e.target.value;
+                      const foundType = movementTypes.find(mt => mt.id === targetId);
+                      setSelectedMovementTypeId(targetId);
+                      setSelectedMovementTypeCode(foundType ? foundType.code : '');
+                      
+                      // Limpiar campos para evitar errores cruzados
+                      setSourceAccountId("");
+                      setTargetAccountId("");
+                      setSourceAccountText("");
+                      setTargetAccountText("");
+                    }}
                     className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white focus:outline-none focus:border-slate-900 text-sm"
                   >
-                    <option value="income">Ingreso</option>
-                    <option value="expense">Egreso</option>
-                    <option value="transfer">Transferencia</option>
-                    <option value="adjustment">Ajuste</option>
+                    {movementTypes.map((mt) => (
+                      <option key={mt.id} value={mt.id}>{mt.name}</option>
+                    ))}
                   </select>
                 </div>
-                <div className="col-span-1">
+                <div>
                   <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Monto</label>
                   <input 
                     type="number" 
@@ -285,15 +292,16 @@ export default function Dashboard() {
                     className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:border-slate-900 text-sm"
                   />
                 </div>
-                <div className="col-span-1">
+                <div>
                   <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Moneda</label>
                   <select 
                     value={currency}
                     onChange={(e) => {
                       setCurrency(e.target.value as "ARS" | "USD");
-                      // Reset selected accounts when currency changes
                       setSourceAccountId("");
                       setTargetAccountId("");
+                      setSourceAccountText("");
+                      setTargetAccountText("");
                     }}
                     className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white focus:outline-none focus:border-slate-900 text-sm"
                   >
@@ -304,66 +312,60 @@ export default function Dashboard() {
               </div>
 
               {errorMessage && (
-                <div className="text-red-500 text-sm">{errorMessage}</div>
+                <div className="bg-red-50 text-red-600 p-2.5 rounded-xl text-xs font-medium border border-red-100">{errorMessage}</div>
               )}
 
               <div className="grid grid-cols-2 gap-4">
-                {/* Campo Cuenta Origen */}
+                {/* COLUMNA CUENTA ORIGEN */}
                 <div>
                   <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Cuenta Origen</label>
-                  {(type === 'income' || type === 'expense' || type === 'transfer') && (
-                    <select
-                      value={sourceAccountId}
-                      onChange={(e) => setSourceAccountId(e.target.value)}
-                      className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white focus:outline-none focus:border-slate-900 text-sm"
-                      disabled={type === 'income'} // Deshabilitar si es ingreso
-                      required={type === 'expense' || type === 'transfer'} // Requerido si es egreso o transferencia
-                    >
-                      <option value="">{type === 'income' ? 'Entidad Externa' : 'Seleccionar Cuenta'}</option>
-                      {accounts.filter(acc => acc.moneda === currency).map((account) => (
-                        <option key={account.id} value={account.id}>{account.nombre} ({account.moneda})</option>
-                      ))}
-                    </select>
-                  )}
-                  {(type === 'income' || type === 'expense') && ( // Mostrar texto libre solo para income/expense
-                    <input
-                      type="text"
-                      placeholder="O escribir texto libre..."
-                      value={type === 'income' ? sourceAccountId : ''} // Solo mostrar texto libre para income
-                      onChange={(e) => setSourceAccountId(e.target.value)}
-                      disabled={type === 'expense'} // Deshabilitar si es egreso
-                      className="w-full px-3 py-2 mt-1 border border-slate-200 rounded-xl focus:outline-none focus:border-slate-900 text-sm"
-                    />
-                  )}
+                  <select
+                    value={sourceAccountId}
+                    onChange={(e) => setSourceAccountId(e.target.value)}
+                    disabled={isSelectOrigenDisabled}
+                    required={!isSelectOrigenDisabled}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white focus:outline-none focus:border-slate-900 text-sm mb-2 disabled:bg-slate-100 disabled:text-slate-400"
+                  >
+                    <option value="">Seleccionar Cuenta...</option>
+                    {accounts.filter(acc => acc.moneda === currency).map((account) => (
+                      <option key={account.id} value={account.id}>{account.nombre}</option>
+                    ))}
+                  </select>
+                  <input
+                    type="text"
+                    placeholder="O escribir texto libre..."
+                    value={sourceAccountText}
+                    onChange={(e) => setSourceAccountText(e.target.value)}
+                    disabled={isTextOrigenDisabled}
+                    required={!isTextOrigenDisabled}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:border-slate-900 text-sm disabled:bg-slate-100 disabled:placeholder-slate-300"
+                  />
                 </div>
 
-                {/* Campo Cuenta Destino */}
+                {/* COLUMNA CUENTA DESTINO */}
                 <div>
                   <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Cuenta Destino</label>
-                  {(type === 'income' || type === 'expense' || type === 'transfer') && (
-                    <select
-                      value={targetAccountId}
-                      onChange={(e) => setTargetAccountId(e.target.value)}
-                      className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white focus:outline-none focus:border-slate-900 text-sm"
-                      disabled={type === 'expense'} // Deshabilitar si es egreso
-                      required={type === 'income' || type === 'transfer'} // Requerido si es ingreso o transferencia
-                    >
-                      <option value="">{type === 'expense' ? 'Entidad Externa' : 'Seleccionar Cuenta'}</option>
-                      {accounts.filter(acc => acc.moneda === currency).map((account) => (
-                        <option key={account.id} value={account.id}>{account.nombre} ({account.moneda})</option>
-                      ))}
-                    </select>
-                  )}
-                  {(type === 'income' || type === 'expense') && ( // Mostrar texto libre solo para income/expense
-                    <input
-                      type="text"
-                      placeholder="O escribir texto libre..."
-                      value={type === 'expense' ? targetAccountId : ''} // Solo mostrar texto libre para expense
-                      onChange={(e) => setTargetAccountId(e.target.value)}
-                      disabled={type === 'income'} // Deshabilitar si es ingreso
-                      className="w-full px-3 py-2 mt-1 border border-slate-200 rounded-xl focus:outline-none focus:border-slate-900 text-sm"
-                    />
-                  )}
+                  <select
+                    value={targetAccountId}
+                    onChange={(e) => setTargetAccountId(e.target.value)}
+                    disabled={isSelectDestinoDisabled}
+                    required={!isSelectDestinoDisabled}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white focus:outline-none focus:border-slate-900 text-sm mb-2 disabled:bg-slate-100 disabled:text-slate-400"
+                  >
+                    <option value="">Seleccionar Cuenta...</option>
+                    {accounts.filter(acc => acc.moneda === currency).map((account) => (
+                      <option key={account.id} value={account.id}>{account.nombre}</option>
+                    ))}
+                  </select>
+                  <input
+                    type="text"
+                    placeholder="O escribir texto libre..."
+                    value={targetAccountText}
+                    onChange={(e) => setTargetAccountText(e.target.value)}
+                    disabled={isTextDestinoDisabled}
+                    required={!isTextDestinoDisabled}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:border-slate-900 text-sm disabled:bg-slate-100 disabled:placeholder-slate-300"
+                  />
                 </div>
               </div>
 
@@ -397,7 +399,6 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Modal de Detalle de Cuenta */}
       {selectedAccountId && (
         <AccountDetailModal
           accountId={selectedAccountId}

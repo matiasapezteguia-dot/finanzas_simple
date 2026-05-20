@@ -22,12 +22,17 @@ export interface Account {
   created_at?: string; // Optional as it might not be always fetched or used
 }
 
-export type MovementType = 'income' | 'expense' | 'transfer' | 'adjustment';
+export interface MovementTypeItem {
+  id: string;
+  name: string;
+  code: string;
+}
 
 export interface Movement {
   id: string;
   cuentaId: string; // Corresponds to Supabase account_id
-  tipo: MovementType; // Corresponds to Supabase movement_type
+  movement_type_id: string; // New FK to movement_types
+  movement_type_code?: string; // Optional, for easier access
   categoria: string | null; // Corresponds to Supabase category_name
   monto: number; // Corresponds to Supabase amount
   descripcion: string | null; // Corresponds to Supabase description
@@ -43,6 +48,7 @@ export interface StoreState {
   accounts: Account[];
   accountGroups: string[]; // Changed to string[] to match initialState in store.tsx
   accountCategories: string[]; // Changed to string[] to match initialState in store.tsx
+  movementTypes: MovementTypeItem[]; // New: List of movement types
 }
 
 export interface FinanzasStoreContextType extends StoreState {
