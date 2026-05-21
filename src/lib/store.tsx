@@ -90,7 +90,7 @@ export const useFinanzasStore = create<FinanzasStoreContextType>((set, get) => (
   // 4. MANTENIMIENTO DE ESTRUCTURAS SECUNDARIAS
   addAccountGroup: async (name: string) => {
     try {
-      await supabase.from('account_groups').insert([{ name }]);
+      await supabaseCatalogRepository.addGroup(name);
       await get().fetchInitialData();
     } catch (error) {
       console.error(error);
@@ -108,7 +108,7 @@ export const useFinanzasStore = create<FinanzasStoreContextType>((set, get) => (
 
   deleteAccountGroup: async (name: string) => {
     try {
-      await supabase.from('account_groups').delete().eq('name', name);
+      await supabaseCatalogRepository.deleteGroup(name);
       await get().fetchInitialData();
     } catch (error) {
       console.error(error);
@@ -117,7 +117,7 @@ export const useFinanzasStore = create<FinanzasStoreContextType>((set, get) => (
 
   addAccountCategory: async (name: string) => {
     try {
-      await supabase.from('account_categories').insert([{ name }]);
+      await supabaseCatalogRepository.addCategory(name);
       await get().fetchInitialData();
     } catch (error) {
       console.error(error);
@@ -135,7 +135,7 @@ export const useFinanzasStore = create<FinanzasStoreContextType>((set, get) => (
 
   deleteAccountCategory: async (name: string) => {
     try {
-      await supabase.from('account_categories').delete().eq('name', name);
+      await supabaseCatalogRepository.deleteCategory(name);
       await get().fetchInitialData();
     } catch (error) {
       console.error(error);

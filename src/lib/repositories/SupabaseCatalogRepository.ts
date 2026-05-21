@@ -40,6 +40,52 @@ class SupabaseCatalogRepository implements ICatalogRepository {
 
     return data as MovementTypeItem[];
   }
+
+  async addCategory(name: string): Promise<void> {
+    const { error } = await supabase
+      .from('account_categories')
+      .insert([{ name }]);
+
+    if (error) {
+      console.error('Error adding category:', error);
+      throw new Error(error.message);
+    }
+  }
+
+  async deleteCategory(id: string): Promise<void> {
+    const { error } = await supabase
+      .from('account_categories')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      console.error('Error deleting category:', error);
+      throw new Error(error.message);
+    }
+  }
+
+  async addGroup(name: string): Promise<void> {
+    const { error } = await supabase
+      .from('account_groups')
+      .insert([{ name }]);
+
+    if (error) {
+      console.error('Error adding group:', error);
+      throw new Error(error.message);
+    }
+  }
+
+  async deleteGroup(id: string): Promise<void> {
+    const { error } = await supabase
+      .from('account_groups')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      console.error('Error deleting group:', error);
+      throw new Error(error.message);
+    }
+  }
 }
 
 export const supabaseCatalogRepository = new SupabaseCatalogRepository();

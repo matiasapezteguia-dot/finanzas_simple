@@ -73,6 +73,10 @@ export interface ICatalogRepository {
   fetchGroups(): Promise<string[]>;
   fetchCategories(): Promise<AccountCategory[]>;
   fetchMovementTypes(): Promise<MovementTypeItem[]>;
+  addCategory(name: string): Promise<void>;
+  deleteCategory(id: string): Promise<void>;
+  addGroup(name: string): Promise<void>;
+  deleteGroup(id: string): Promise<void>;
 }
 
 // ==========================================================
