@@ -1,7 +1,19 @@
 import { createClient } from '@supabase/supabase-js';
 import { v4 as uuidv4 } from 'uuid';
-import { Account, IAccountRepository, AccountGroup, AccountCategory } from '../../types/finanzas';
-import { supabase } from '../supabaseClient'; 
+import { Account, IAccountRepository, AccountGroup, AccountCategory, MonedaType } from '../../types/finanzas';
+import { supabase } from '../supabaseClient';
+import { Database } from '../../../supabase_types';
+
+type AccountRow = Database['public']['Tables']['accounts']['Row'];
+type AccountInsert = Database['public']['Tables']['accounts']['Insert'];
+type AccountUpdate = Database['public']['Tables']['accounts']['Update'];
+type AccountGroupRow = Database['public']['Tables']['account_groups']['Row'];
+type AccountCategoryRow = Database['public']['Tables']['account_categories']['Row'];
+
+type AccountWithRelations = AccountRow & {
+  account_groups: Pick<AccountGroupRow, 'name'> | null;
+  account_categories: Pick<AccountCategoryRow, 'name'> | null;
+};
 
 class SupabaseAccountRepository implements IAccountRepository {
   constructor() {}
@@ -18,20 +30,24 @@ class SupabaseAccountRepository implements IAccountRepository {
         created_at,
         account_groups (name),
         account_categories (name)
-      `);
+      `) as { data: AccountWithRelations[] | null; error: Error | null };
 
     if (error) {
       console.error('Error fetching accounts:', error);
       throw error;
     }
 
+    if (!data) {
+      return [];
+    }
+
     // Traduce de la infraestructura física (inglés/snake_case) al dominio local de la UI
-    return data.map((item: any) => ({
+    return data.map((item: AccountWithRelations) => ({
       id: item.id,
       nombre: item.name,
-      grupo: item.account_groups ? item.account_groups.name : null,
-      categoria: item.account_categories ? item.account_categories.name : null,
-      moneda: item.currency,
+      grupo: item.account_groups?.name ?? null,
+      categoria: item.account_categories?.name ?? null,
+      moneda: item.currency as MonedaType,
       montoInicial: Number(item.initial_amount) || 0,
       created_at: item.created_at,
     }));
@@ -47,13 +63,13 @@ class SupabaseAccountRepository implements IAccountRepository {
         .from('account_groups')
         .select('id')
         .eq('name', account.grupo)
-        .maybeSingle(); // CORREGIDO: maybeSingle evita excepciones si da vacío
+        .maybeSingle<Pick<AccountGroupRow, 'id'> | null>();
 
       if (groupError) {
         console.error('Error fetching account group:', groupError);
         throw groupError;
       }
-      groupId = groupData ? groupData.id : null;
+      groupId = groupData?.id ?? null;
     }
 
     if (account.categoria) {
@@ -61,29 +77,30 @@ class SupabaseAccountRepository implements IAccountRepository {
         .from('account_categories')
         .select('id')
         .eq('name', account.categoria)
-        .maybeSingle();
+        .maybeSingle<Pick<AccountCategoryRow, 'id'> | null>();
 
       if (categoryError) {
         console.error('Error fetching account category:', categoryError);
         throw categoryError;
       }
-      categoryId = categoryData ? categoryData.id : null;
+      categoryId = categoryData?.id ?? null;
     }
 
-    // CORREGIDO: Payload alineado a las columnas relacionales verdaderas
+    const accountToInsert: AccountInsert = {
+      id: newId,
+      name: account.nombre,
+      account_group_id: groupId,
+      account_category_id: categoryId,
+      currency: account.moneda,
+      initial_amount: Number(account.montoInicial) || 0,
+      current_amount: Number(account.montoInicial) || 0,
+    };
+
     const { data, error } = await supabase
       .from('accounts')
-      .insert({
-        id: newId,
-        name: account.nombre,
-        account_group_id: groupId,
-        account_category_id: categoryId,
-        currency: account.moneda,
-        initial_amount: Number(account.montoInicial) || 0,
-        current_amount: Number(account.montoInicial) || 0,
-      })
+      .insert(accountToInsert)
       .select()
-      .single();
+      .single<AccountRow>();
 
     if (error) {
       console.error('Error saving account:', error);
@@ -95,7 +112,7 @@ class SupabaseAccountRepository implements IAccountRepository {
       nombre: data.name,
       grupo: account.grupo,
       categoria: account.categoria,
-      moneda: data.currency,
+      moneda: data.currency as MonedaType,
       montoInicial: Number(data.initial_amount) || 0,
       created_at: data.created_at
     };
@@ -110,13 +127,13 @@ class SupabaseAccountRepository implements IAccountRepository {
         .from('account_groups')
         .select('id')
         .eq('name', account.grupo)
-        .maybeSingle();
+        .maybeSingle<Pick<AccountGroupRow, 'id'> | null>();
 
       if (groupError) {
         console.error('Error fetching account group:', groupError);
         throw groupError;
       }
-      groupId = groupData ? groupData.id : null;
+      groupId = groupData?.id ?? null;
     }
 
     if (account.categoria) {
@@ -124,25 +141,26 @@ class SupabaseAccountRepository implements IAccountRepository {
         .from('account_categories')
         .select('id')
         .eq('name', account.categoria)
-        .maybeSingle();
+        .maybeSingle<Pick<AccountCategoryRow, 'id'> | null>();
 
       if (categoryError) {
         console.error('Error fetching account category:', categoryError);
         throw categoryError;
       }
-      categoryId = categoryData ? categoryData.id : null;
+      categoryId = categoryData?.id ?? null;
     }
 
-    // CORREGIDO: Update estructurado con nombres de columnas válidos
+    const accountToUpdate: AccountUpdate = {
+      name: account.nombre,
+      account_group_id: groupId,
+      account_category_id: categoryId,
+      currency: account.moneda,
+      initial_amount: Number(account.montoInicial) || 0,
+    };
+
     const { error } = await supabase
       .from('accounts')
-      .update({
-        name: account.nombre,
-        account_group_id: groupId,
-        account_category_id: categoryId,
-        currency: account.moneda,
-        initial_amount: Number(account.montoInicial) || 0,
-      })
+      .update(accountToUpdate)
       .eq('id', account.id);
 
     if (error) {
