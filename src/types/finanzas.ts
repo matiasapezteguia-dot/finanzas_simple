@@ -47,7 +47,7 @@ export interface StoreState {
   movements: Movement[];
   accounts: Account[];
   accountGroups: string[]; // Changed to string[] to match initialState in store.tsx
-  accountCategories: string[]; // Changed to string[] to match initialState in store.tsx
+  accountCategories: AccountCategory[];
   movementTypes: MovementTypeItem[]; // New: List of movement types
 }
 

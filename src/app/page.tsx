@@ -11,24 +11,27 @@ import TransactionsTable from "@/components/TransactionsTable";
 export default function Dashboard() {
   const [mounted, setMounted] = useState(false);
   
-  // Guardamos tanto el ID como el Código explícito en estados locales directos
-  const [selectedMovementTypeId, setSelectedMovementTypeId] = useState<string>('');
-  const [selectedMovementTypeCode, setSelectedMovementTypeCode] = useState<string>('ingreso');
+   const { movements, accounts, addMovement, deleteMovement, getAccountBalance, accountCategories, accountGroups, fetchInitialData, getTotalARS, getTotalUSD, movementTypes } = useFinanzasStore();
 
-  const { movements, accounts, addMovement, deleteMovement, getAccountBalance, accountCategories, accountGroups, fetchInitialData, getTotalARS, getTotalUSD, movementTypes } = useFinanzasStore();
+  // Guardamos por defecto el código 'income' que es el que reconoce Supabase
+  const [selectedMovementTypeId, setSelectedMovementTypeId] = useState<string>('');
+  const [selectedMovementTypeCode, setSelectedMovementTypeCode] = useState<string>('income');
 
   useEffect(() => {
     fetchInitialData();
-  }, []);
+  }, [fetchInitialData]);
 
   useEffect(() => {
     setMounted(true);
-    // Forzar inicialización limpia cuando cargan los tipos de Supabase
-    if (movementTypes.length > 0 && !selectedMovementTypeId) {
-      const defaultIncomeType = movementTypes.find(mt => mt.code === 'ingreso');
+    if (movementTypes && movementTypes.length > 0 && !selectedMovementTypeId) {
+      // Buscamos 'income' en lugar de 'ingreso'
+      const defaultIncomeType = movementTypes.find(mt => mt.code === 'income');
       if (defaultIncomeType) {
         setSelectedMovementTypeId(defaultIncomeType.id);
-        setSelectedMovementTypeCode('ingreso');
+        setSelectedMovementTypeCode('income');
+      } else {
+        setSelectedMovementTypeId(movementTypes[0].id);
+        setSelectedMovementTypeCode(movementTypes[0].code || '');
       }
     }
   }, [movementTypes, selectedMovementTypeId]);
@@ -72,11 +75,12 @@ export default function Dashboard() {
   const totalUSD = getTotalUSD();
 
   // MATRIZ CONTABLE CORREGIDA - Evaluación de bloqueos infalible
-  const isSelectOrigenDisabled = selectedMovementTypeCode === 'ingreso' || selectedMovementTypeCode === 'ajuste';
-  const isTextOrigenDisabled = selectedMovementTypeCode === 'egreso' || selectedMovementTypeCode === 'transferencia' || selectedMovementTypeCode === 'ajuste';
+// MATRIZ CONTABLE SINCRONIZADA CON SUPABASE ('income', 'expense', 'transfer', 'adjustment')
+  const isSelectOrigenDisabled = selectedMovementTypeCode === 'income' || selectedMovementTypeCode === 'adjustment';
+  const isTextOrigenDisabled = selectedMovementTypeCode === 'expense' || selectedMovementTypeCode === 'transfer' || selectedMovementTypeCode === 'adjustment';
 
-  const isSelectDestinoDisabled = selectedMovementTypeCode === 'egreso' || selectedMovementTypeCode === 'ajuste';
-  const isTextDestinoDisabled = selectedMovementTypeCode === 'ingreso' || selectedMovementTypeCode === 'transferencia' || selectedMovementTypeCode === 'ajuste';
+  const isSelectDestinoDisabled = selectedMovementTypeCode === 'expense' || selectedMovementTypeCode === 'adjustment';
+  const isTextDestinoDisabled = selectedMovementTypeCode === 'income' || selectedMovementTypeCode === 'transfer' || selectedMovementTypeCode === 'adjustment';
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
@@ -98,7 +102,8 @@ export default function Dashboard() {
     let finalCategory: string | null = null;
     let extraInfo = "";
 
-    if (selectedMovementTypeCode === 'ingreso') {
+    // PROCESO DE LOGICA CONTABLE CON VALIDACIONES (Sincronizado en inglés)
+    if (selectedMovementTypeCode === 'income') {
       if (!targetAccountId) {
         setErrorMessage("Debés seleccionar una cuenta destino del sistema.");
         return;
@@ -108,7 +113,7 @@ export default function Dashboard() {
       finalMovementAccountId = targetAccountId;
       if (sourceAccountText) extraInfo = ` (Origen: ${sourceAccountText})`;
 
-    } else if (selectedMovementTypeCode === 'egreso') {
+    } else if (selectedMovementTypeCode === 'expense') {
       if (!sourceAccountId) {
         setErrorMessage("Debés seleccionar una cuenta origen del sistema.");
         return;
@@ -118,7 +123,7 @@ export default function Dashboard() {
       finalMovementAccountId = sourceAccountId;
       if (targetAccountText) extraInfo = ` (Destino: ${targetAccountText})`;
 
-    } else if (selectedMovementTypeCode === 'transferencia') {
+    } else if (selectedMovementTypeCode === 'transfer') {
       if (!sourceAccountId || !targetAccountId) {
         setErrorMessage("Para transferencias debés seleccionar origen y destino del sistema.");
         return;
@@ -131,7 +136,7 @@ export default function Dashboard() {
       finalTarget = targetAccountId;
       finalMovementAccountId = sourceAccountId;
 
-    } else if (selectedMovementTypeCode === 'ajuste') {
+    } else if (selectedMovementTypeCode === 'adjustment') {
       const referenceAccount = targetAccountId || sourceAccountId;
       if (!referenceAccount) {
         setErrorMessage("Seleccioná al menos una cuenta del sistema para aplicar el ajuste.");
