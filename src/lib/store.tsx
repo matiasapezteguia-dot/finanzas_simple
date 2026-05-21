@@ -3,6 +3,7 @@ import { supabase } from './supabaseClient'; // Solo usado para catálogos base/
 import { Account, Movement, StoreState, AccountCategory, FinanzasStoreContextType } from '../types/finanzas';
 import { supabaseTransactionRepository } from './repositories/SupabaseTransactionRepository';
 import { supabaseAccountRepository } from './repositories/SupabaseAccountRepository';
+import { supabaseCatalogRepository } from './repositories/SupabaseCatalogRepository';
 
 const initialState: StoreState = {
   movements: [],
@@ -18,28 +19,22 @@ export const useFinanzasStore = create<FinanzasStoreContextType>((set, get) => (
   // 1. CARGA DE DATOS ORQUESTADA A TRAVÉS DE REPOSITORIOS
   fetchInitialData: async () => {
     try {
-      // Catálogos auxiliares (se mantienen directos temporalmente o hasta crear repositorios menores)
-      const { data: groupsData } = await supabase.from('account_groups').select('name');
-      const { data: categoriesData } = await supabase.from('account_categories').select('id, name');
-      const { data: movementTypesData } = await supabase.from('movement_types').select('id, name, code');
-
-      if (groupsData && groupsData.length > 0) {
-        set({ accountGroups: groupsData.map(g => g.name) });
-      }
-      if (categoriesData && categoriesData.length > 0) {
-        set({ accountCategories: categoriesData as AccountCategory[] });
-      }
-      if (movementTypesData) {
-        set({ movementTypes: movementTypesData });
-      }
-
-      // DOMINIO PRINCIPAL: Delegación absoluta a la capa de Infraestructura
-      const [movements, accounts] = await Promise.all([
+      // Catálogos auxiliares
+      const [accountGroups, accountCategories, movementTypes, movements, accounts] = await Promise.all([
+        supabaseCatalogRepository.fetchGroups(),
+        supabaseCatalogRepository.fetchCategories(),
+        supabaseCatalogRepository.fetchMovementTypes(),
         supabaseTransactionRepository.fetchAll(),
         supabaseAccountRepository.fetchAll()
       ]);
 
-      set({ movements, accounts });
+      set({
+        accountGroups,
+        accountCategories,
+        movementTypes,
+        movements,
+        accounts
+      });
     } catch (err) {
       console.error('Error en la orquestación de datos del Store:', err);
     }

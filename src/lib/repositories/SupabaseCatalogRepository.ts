@@ -1,4 +1,4 @@
-import { supabase } from '../../lib/supabaseClient';
+import { supabase } from '../supabaseClient'; // Corregido el path relativo según la estructura usual
 import { ICatalogRepository, AccountCategory, MovementTypeItem } from '../../types/finanzas';
 
 class SupabaseCatalogRepository implements ICatalogRepository {
@@ -18,7 +18,7 @@ class SupabaseCatalogRepository implements ICatalogRepository {
   async fetchCategories(): Promise<AccountCategory[]> {
     const { data, error } = await supabase
       .from('account_categories')
-      .select('id, name, created_at');
+      .select('id, name'); // CORREGIDO: Eliminado 'created_at' que causaba el quiebre
 
     if (error) {
       console.error('Error fetching categories:', error);
