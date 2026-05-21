@@ -86,6 +86,29 @@ class SupabaseCatalogRepository implements ICatalogRepository {
       throw new Error(error.message);
     }
   }
+  async updateGroup(oldName: string, newName: string): Promise<void> {
+    const { error } = await supabase
+      .from('account_groups')
+      .update({ name: newName })
+      .eq('name', oldName);
+
+    if (error) {
+      console.error('Error updating group:', error);
+      throw new Error(error.message);
+    }
+  }
+
+  async updateCategory(oldName: string, newName: string): Promise<void> {
+    const { error } = await supabase
+      .from('account_categories')
+      .update({ name: newName })
+      .eq('name', oldName);
+
+    if (error) {
+      console.error('Error updating category:', error);
+      throw new Error(error.message);
+    }
+  }
 }
 
 export const supabaseCatalogRepository = new SupabaseCatalogRepository();

@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { supabase } from './supabaseClient'; // Solo usado para catálogos base/auxiliares
+
 import { Account, Movement, StoreState, AccountCategory, FinanzasStoreContextType } from '../types/finanzas';
 import { supabaseTransactionRepository } from './repositories/SupabaseTransactionRepository';
 import { supabaseAccountRepository } from './repositories/SupabaseAccountRepository';
@@ -99,7 +99,7 @@ export const useFinanzasStore = create<FinanzasStoreContextType>((set, get) => (
 
   updateAccountGroup: async (oldName: string, newName: string) => {
     try {
-      await supabase.from('account_groups').update({ name: newName }).eq('name', oldName);
+      await supabaseCatalogRepository.updateGroup(oldName, newName);
       await get().fetchInitialData();
     } catch (error) {
       console.error(error);
@@ -126,7 +126,7 @@ export const useFinanzasStore = create<FinanzasStoreContextType>((set, get) => (
 
   updateAccountCategory: async (oldName: string, newName: string) => {
     try {
-      await supabase.from('account_categories').update({ name: newName }).eq('name', oldName);
+      await supabaseCatalogRepository.updateCategory(oldName, newName);
       await get().fetchInitialData();
     } catch (error) {
       console.error(error);

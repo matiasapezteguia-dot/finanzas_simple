@@ -77,6 +77,8 @@ export interface ICatalogRepository {
   deleteCategory(id: string): Promise<void>;
   addGroup(name: string): Promise<void>;
   deleteGroup(id: string): Promise<void>;
+  updateGroup(oldName: string, newName: string): Promise<void>;
+  updateCategory(oldName: string, newName: string): Promise<void>;
 }
 
 // ==========================================================
