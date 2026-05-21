@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-import { Account, Movement, StoreState, AccountCategory, FinanzasStoreContextType } from '../types/finanzas';
+import { Account, Movement, StoreState, AccountCategory, FinanzasStoreContextType, MonedaType } from '../types/finanzas';
 import { supabaseTransactionRepository } from './repositories/SupabaseTransactionRepository';
 import { supabaseAccountRepository } from './repositories/SupabaseAccountRepository';
 import { supabaseCatalogRepository } from './repositories/SupabaseCatalogRepository';
@@ -150,22 +150,32 @@ export const useFinanzasStore = create<FinanzasStoreContextType>((set, get) => (
     const balance = get().movements
       .filter((m) => m.cuentaId === accountId)
       .reduce((acc, m) => {
-        const type = m.movement_type_code?.toLowerCase().trim();
+        // 1. Buscar el tipo de movimiento en el catálogo usando el ID real de la base de datos
+        const tipoEncontrado = get().movementTypes.find(
+          (t) => t.id === m.movement_type_id || t.id === (m as any).typeId
+        );
         
-        if (type === 'income' || type === 'ingreso') {
-          return acc + Math.abs(m.monto);
-        } else if (type === 'expense' || type === 'egreso') {
-          return acc - Math.abs(m.monto);
+        // 2. Obtener el nombre o código para saber qué es
+        const nombreTipo = tipoEncontrado?.name?.toLowerCase().trim() || '';
+        const codigoTipo = tipoEncontrado?.code?.toLowerCase().trim() || '';
+        
+        const montoAbs = Math.abs(m.monto);
+
+        // 3. Evaluar con precisión quirúrgica
+        if (nombreTipo === 'ingreso' || codigoTipo === 'income') {
+          return acc + montoAbs;
+        } else if (nombreTipo === 'egreso' || codigoTipo === 'expense') {
+          return acc - montoAbs;
         } else {
-          // Transferencias reflejadas o ajustes puros respetan el signo neto de la infraestructura
-          return acc + m.monto;
+          // Salvavidas final por si el monto vino explícitamente negativo
+          return m.monto < 0 ? acc - montoAbs : acc + m.monto;
         }
       }, cuenta.montoInicial);
 
     return isNaN(balance) ? 0 : balance;
   },
 
-  getBalance: (currency) => {
+  getBalance: (currency: MonedaType) => {
     const total = get().accounts
       .filter((a) => a.moneda === currency)
       .reduce((acc, a) => acc + get().getAccountBalance(a.id), 0);
@@ -189,7 +199,7 @@ export const useFinanzasStore = create<FinanzasStoreContextType>((set, get) => (
     return isNaN(total) ? 0 : total;
   },
 
-  getBalancesByGroup: (currency) => {
+  getBalancesByGroup: (currency: MonedaType) => {
     const res: { [key: string]: number } = {};
     get().accounts
       .filter((a) => a.moneda === currency)
@@ -200,7 +210,7 @@ export const useFinanzasStore = create<FinanzasStoreContextType>((set, get) => (
     return res;
   },
 
-  getBalancesByCategory: (currency) => {
+  getBalancesByCategory: (currency: MonedaType) => {
     const res: { [key: string]: number } = {};
     get().accounts
       .filter((a) => a.moneda === currency)

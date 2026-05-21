@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useFinanzasStore, Account } from '../../lib/store';
+import { useFinanzasStore } from '../../lib/store';
+import { Account, AccountCategory } from '../../types/finanzas';
 
 interface TabProps {
   label: string;
@@ -195,13 +196,13 @@ export default function ConfiguracionPage() {
     fetchInitialData();
   }, [fetchInitialData]);
 
-  const [newAccount, setNewAccount] = useState<Omit<Account, 'id'>>({
+  const [newAccount, setNewAccount] = useState<Omit<Account, 'id'> & { grupo: string; categoria: string }>({
     nombre: '',
     montoInicial: 0,
     // date: new Date().toISOString().split('T')[0], // No longer needed as per Account interface
     moneda: 'ARS',
     grupo: accountGroups[0] || '',
-    categoria: accountCategories[0] || '',
+    categoria: accountCategories[0]?.name || '',
   });
 
   const [editingAccountId, setEditingAccountId] = useState<string | null>(null);
@@ -216,7 +217,7 @@ export default function ConfiguracionPage() {
         // date: new Date().toISOString().split('T')[0], // No longer needed
         moneda: 'ARS',
         grupo: accountGroups[0] || '',
-        categoria: accountCategories[0] || '',
+        categoria: accountCategories[0]?.name || '',
       });
     }
   };
@@ -308,15 +309,16 @@ export default function ConfiguracionPage() {
             onUpdate={updateAccountCategory}
             onDelete={deleteAccountCategory}
             accounts={accounts}
-           renderItemExtra={(category: string) => {
+            getItemName={(category: AccountCategory) => category.name}
+            renderItemExtra={(category: AccountCategory) => {
               // Calculamos el total ARS dinámicamente para esta categoría
               const totalARS = accounts
-                .filter(a => a.categoria === category && a.moneda === 'ARS')
+                .filter(a => a.categoria === category.name && a.moneda === 'ARS')
                 .reduce((acc, a) => acc + getAccountBalance(a.id), 0);
 
               // Calculamos el total USD dinámicamente para esta categoría
               const totalUSD = accounts
-                .filter(a => a.categoria === category && a.moneda === 'USD')
+                .filter(a => a.categoria === category.name && a.moneda === 'USD')
                 .reduce((acc, a) => acc + getAccountBalance(a.id), 0);
 
               const formatCurrency = (value: number, currency: 'ARS' | 'USD') => {
@@ -393,17 +395,9 @@ export default function ConfiguracionPage() {
                   value={newAccount.categoria}
                   onChange={(e) => setNewAccount({ ...newAccount, categoria: e.target.value })}
                 >
-                  {accountCategories && accountCategories.map((category: any) => {
-  // Con esto leemos el ID único si es un objeto, o el texto si es un string viejo
-  const keyId = category.id || category;
-  const displayName = category.name || category;
-
-  return (
-    <option key={keyId} value={displayName}>
-      {displayName}
-    </option>
-  );
-})}
+                  {accountCategories.map((category) => (
+                    <option key={category.id} value={category.name}>{category.name}</option>
+                  ))}
                 </select>
               </div>
               <button
@@ -481,7 +475,7 @@ export default function ConfiguracionPage() {
                                 className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                               >
                                 {accountCategories.map((category) => (
-                                  <option key={category} value={category}>{category}</option>
+                                  <option key={category.id} value={category.name}>{category.name}</option>
                                 ))}
                               </select>
                             </td>

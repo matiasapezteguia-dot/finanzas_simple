@@ -42,6 +42,7 @@ export interface Movement {
   cuentaId: string;
   movement_type_id: string;
   movement_type_code?: string;
+  typeId?: string;
   categoria: string | null;
   monto: number;             // Signado internamente si es relacional
   descripcion: string | null;
@@ -102,6 +103,9 @@ export interface FinanzasStoreContextType extends StoreState {
   getAvailableARS: () => number;
   getTotalARSInvestments: () => number;
   getTotalUSD: () => number;
+  getBalance: (currency: MonedaType) => number;
+  getBalancesByGroup: (currency: MonedaType) => { [key: string]: number };
+  getBalancesByCategory: (currency: MonedaType) => { [key: string]: number };
   addAccount: (account: Omit<Account, 'id' | 'created_at'>) => Promise<void>;
   updateAccount: (updatedAccount: Account) => Promise<void>;
   deleteAccount: (id: string) => Promise<void>;

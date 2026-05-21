@@ -1,5 +1,6 @@
 import { supabase } from '../supabaseClient'; // Corregido el path relativo según la estructura usual
 import { ICatalogRepository, AccountCategory, MovementTypeItem } from '../../types/finanzas';
+import { Database } from '../../../supabase_types';
 
 class SupabaseCatalogRepository implements ICatalogRepository {
   async fetchGroups(): Promise<string[]> {
@@ -12,7 +13,7 @@ class SupabaseCatalogRepository implements ICatalogRepository {
       throw new Error(error.message);
     }
 
-    return data.map(group => group.name);
+    return data.map((group: Pick<Database['public']['Tables']['account_groups']['Row'], 'name'>) => group.name);
   }
 
   async fetchCategories(): Promise<AccountCategory[]> {
@@ -25,7 +26,7 @@ class SupabaseCatalogRepository implements ICatalogRepository {
       throw new Error(error.message);
     }
 
-    return data as AccountCategory[];
+    return data as Database['public']['Tables']['account_categories']['Row'][];
   }
 
   async fetchMovementTypes(): Promise<MovementTypeItem[]> {
