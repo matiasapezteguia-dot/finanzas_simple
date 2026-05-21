@@ -1,18 +1,10 @@
-import { ITransactionRepository, Movement, MovementCodeType } from '../../types/finanzas';
+import { ITransactionRepository, Movement, MovementCodeType, MonedaType } from '../../types/finanzas';
 import { supabase } from '../supabaseClient';
+import { Database } from '../../../supabase_types';
 
-interface SupabaseTransaction {
-  id?: string;
-  account_id: string;
-  movement_type_id: string;
-  category_id: string | null; // CORREGIDO: Nombre de columna correcto en PostgreSQL
-  amount: number;
-  description: string | null;
-  transaction_date: string;
-  currency: string;
-  related_transaction_id?: string;
-  created_at?: string;
-}
+type SupabaseTransactionRow = Database['public']['Tables']['transactions']['Row'];
+type SupabaseTransactionInsert = Database['public']['Tables']['transactions']['Insert'];
+type SupabaseTransactionUpdate = Database['public']['Tables']['transactions']['Update'];
 
 class SupabaseTransactionRepository implements ITransactionRepository {
   private readonly TABLE_NAME = 'transactions';
@@ -26,7 +18,7 @@ class SupabaseTransactionRepository implements ITransactionRepository {
   private toSupabase(
     movement: Omit<Movement, 'id' | 'created_at' | 'movement_type_code'>,
     relatedTransactionId?: string
-  ): Omit<SupabaseTransaction, 'id' | 'created_at'> {
+  ): Omit<SupabaseTransactionInsert, 'id' | 'created_at'> {
     return {
       account_id: movement.cuentaId,
       movement_type_id: movement.movement_type_id,
@@ -40,16 +32,16 @@ class SupabaseTransactionRepository implements ITransactionRepository {
     };
   }
 
-  private fromSupabase(supabaseTransaction: SupabaseTransaction): Movement {
+  private fromSupabase(supabaseTransaction: SupabaseTransactionRow): Movement {
     return {
       id: supabaseTransaction.id!,
-      cuentaId: supabaseTransaction.account_id,
-      movement_type_id: supabaseTransaction.movement_type_id,
+      cuentaId: supabaseTransaction.account_id!,
+      movement_type_id: supabaseTransaction.movement_type_id!,
       categoria: supabaseTransaction.category_id, // Mapeado desde el campo real
       monto: supabaseTransaction.amount,
-      description: supabaseTransaction.description,
+      descripcion: supabaseTransaction.description,
       fecha: supabaseTransaction.transaction_date,
-      moneda: supabaseTransaction.currency as any,
+      moneda: supabaseTransaction.currency as MonedaType,
       created_at: supabaseTransaction.created_at,
     };
   }
@@ -64,7 +56,7 @@ class SupabaseTransactionRepository implements ITransactionRepository {
     }
 
     // CORREGIDO: Se añade .bind(this) para que no falle el contexto en la iteración
-    return (data as SupabaseTransaction[]).map(this.fromSupabase.bind(this));
+    return (data as SupabaseTransactionRow[]).map(this.fromSupabase.bind(this));
   }
 
   async save(movement: Omit<Movement, 'id' | 'created_at' | 'movement_type_code'>): Promise<void> {
@@ -81,14 +73,14 @@ class SupabaseTransactionRepository implements ITransactionRepository {
 
       const { data: sourceResult, error: sourceError } = await supabase
         .from(this.TABLE_NAME)
-        .insert(sourceTransactionData)
+        .insert(sourceTransactionData as SupabaseTransactionInsert)
         .select('*');
 
       if (sourceError) {
         throw new Error(`Error saving source transfer transaction: ${sourceError.message}`);
       }
 
-      const relatedTransactionId = (sourceResult as SupabaseTransaction[])?.[0]?.id;
+      const relatedTransactionId = (sourceResult as SupabaseTransactionRow[])?.[0]?.id;
 
       if (!relatedTransactionId) {
         throw new Error('Could not get ID for source transfer transaction.');
@@ -105,7 +97,7 @@ class SupabaseTransactionRepository implements ITransactionRepository {
 
       const { data: targetResult, error: targetError } = await supabase
         .from(this.TABLE_NAME)
-        .insert(targetTransactionData)
+        .insert(targetTransactionData as SupabaseTransactionInsert)
         .select('*');
 
       if (targetError) {
@@ -114,7 +106,7 @@ class SupabaseTransactionRepository implements ITransactionRepository {
 
       const { error: updateSourceError } = await supabase
         .from(this.TABLE_NAME)
-        .update({ related_transaction_id: (targetResult as SupabaseTransaction[])?.[0]?.id })
+        .update({ related_transaction_id: (targetResult as SupabaseTransactionRow[])?.[0]?.id } as SupabaseTransactionUpdate)
         .eq('id', relatedTransactionId);
 
       if (updateSourceError) {
@@ -125,7 +117,7 @@ class SupabaseTransactionRepository implements ITransactionRepository {
       const supabaseData = this.toSupabase(movement);
       const { error } = await supabase
         .from(this.TABLE_NAME)
-        .insert(supabaseData);
+        .insert(supabaseData as SupabaseTransactionInsert);
 
       if (error) {
         throw new Error(`Error saving transaction: ${error.message}`);
