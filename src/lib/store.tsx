@@ -1,6 +1,9 @@
 import { create } from 'zustand';
 import { supabase } from './supabaseClient';
-import { Account, Movement, StoreState, AccountCategory } from '../types/finanzas';
+import { Account, Movement, StoreState, AccountCategory, FinanzasStoreContextType } from '../types/finanzas';
+import { supabaseTransactionRepository } from './repositories/SupabaseTransactionRepository';
+
+const transactionRepo = supabaseTransactionRepository;
 
 const initialState: StoreState = {
   movements: [],
@@ -141,112 +144,18 @@ export const useFinanzasStore = create<ExtendedStore>((set, get) => ({
   },
 
   addMovement: async (mov) => {
-    const montoNumerico = Number(mov.monto) || 0;
-    const movementTypes = get().movementTypes;
-    const currentMovementType = movementTypes.find(type => type.id === mov.movement_type_id);
-    const movementTypeCode = currentMovementType?.code;
-
-    const isUUID = (str: string) => /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(str);
-
-    let categoryIdToInsert: string | null = null;
-    if (mov.categoria) {
-      if (isUUID(mov.categoria)) {
-        categoryIdToInsert = mov.categoria;
-      } else {
-        const accountCategories = get().accountCategories;
-        const category = accountCategories.find(cat => cat.name === mov.categoria);
-        if (category) {
-          categoryIdToInsert = category.id;
-        }
-      }
-    }
-
     try {
-      if (movementTypeCode === 'transfer') {
-        const egressPayload = {
-          account_id: mov.cuentaId,
-          movement_type_id: mov.movement_type_id,
-          amount: -montoNumerico,
-          description: mov.descripcion,
-          transaction_date: mov.fecha,
-          category_id: categoryIdToInsert,
-          currency: mov.moneda,
-          related_transaction_id: null,
-        };
-
-        const { data: egressData, error: egressError } = await supabase
-          .from('transactions')
-          .insert([egressPayload])
-          .select('id');
-
-        if (egressError) throw egressError;
-        const insertedEgress = egressData && egressData.length > 0 ? egressData[0] : null;
-
-        if (!insertedEgress) throw new Error('No se pudo insertar el movimiento de egreso.');
-
-        const ingressPayload = {
-          account_id: mov.targetAccountId,
-          movement_type_id: mov.movement_type_id,
-          amount: montoNumerico,
-          description: mov.descripcion,
-          transaction_date: mov.fecha,
-          category_id: categoryIdToInsert,
-          currency: mov.moneda,
-          related_transaction_id: insertedEgress.id,
-        };
-
-        const { data: ingressData, error: ingressError } = await supabase
-          .from('transactions')
-          .insert([ingressPayload])
-          .select('id');
-
-        if (ingressError) throw ingressError;
-        const insertedIngress = ingressData && ingressData.length > 0 ? ingressData[0] : null;
-
-        if (!insertedIngress) throw new Error('No se pudo insertar el movimiento de ingreso.');
-
-        await supabase
-          .from('transactions')
-          .update({ related_transaction_id: insertedIngress.id })
-          .eq('id', insertedEgress.id);
-
-        get().fetchInitialData();
-
-      } else {
-        let amountToInsert = montoNumerico;
-        // Si es gasto o egreso, la base de datos almacena el valor en negativo para la doble entrada
-        if (movementTypeCode === 'expense') {
-          amountToInsert = -montoNumerico;
-        }
-
-        const payload = {
-          account_id: mov.cuentaId,
-          movement_type_id: mov.movement_type_id,
-          category_id: categoryIdToInsert,
-          amount: amountToInsert,
-          description: mov.descripcion,
-          transaction_date: mov.fecha,
-          currency: mov.moneda,
-        };
-
-        const { error } = await supabase.from('transactions').insert([payload]);
-        if (error) throw error;
-
-        get().fetchInitialData();
-      }
+      await transactionRepo.save(mov);
+      get().fetchInitialData();
     } catch (err) {
       console.error('Error al agregar movimiento:', err);
-      const localMov: Movement = { id: crypto.randomUUID(), ...mov, monto: montoNumerico, moneda: mov.moneda };
-      set((state) => ({ movements: [localMov, ...state.movements] }));
     }
   },
 
   deleteMovement: async (id) => {
     try {
-      const { error } = await supabase.from('transactions').delete().eq('id', id);
-      if (!error) {
-        set((state) => ({ movements: state.movements.filter((m) => m.id !== id) }));
-      }
+      await transactionRepo.delete(id);
+      get().fetchInitialData();
     } catch (err) {
       console.error(err);
     }
