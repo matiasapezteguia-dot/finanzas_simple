@@ -69,6 +69,12 @@ export interface IAccountRepository {
   delete(id: string): Promise<void>;
 }
 
+export interface ICatalogRepository {
+  fetchGroups(): Promise<string[]>;
+  fetchCategories(): Promise<AccountCategory[]>;
+  fetchMovementTypes(): Promise<MovementTypeItem[]>;
+}
+
 // ==========================================================
 // 4. ESTADO INTERNO DE LA APLICACIÓN (Zustand UI State)
 // ==========================================================
