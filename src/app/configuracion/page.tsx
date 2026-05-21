@@ -393,9 +393,17 @@ export default function ConfiguracionPage() {
                   value={newAccount.categoria}
                   onChange={(e) => setNewAccount({ ...newAccount, categoria: e.target.value })}
                 >
-                  {accountCategories.map((category) => (
-                    <option key={category} value={category}>{category}</option>
-                  ))}
+                  {accountCategories && accountCategories.map((category: any) => {
+  // Con esto leemos el ID único si es un objeto, o el texto si es un string viejo
+  const keyId = category.id || category;
+  const displayName = category.name || category;
+
+  return (
+    <option key={keyId} value={displayName}>
+      {displayName}
+    </option>
+  );
+})}
                 </select>
               </div>
               <button

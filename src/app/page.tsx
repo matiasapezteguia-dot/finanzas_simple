@@ -82,7 +82,7 @@ export default function Dashboard() {
   const isSelectDestinoDisabled = selectedMovementTypeCode === 'expense' || selectedMovementTypeCode === 'adjustment';
   const isTextDestinoDisabled = selectedMovementTypeCode === 'income' || selectedMovementTypeCode === 'transfer' || selectedMovementTypeCode === 'adjustment';
 
-  const handleSave = (e: React.FormEvent) => {
+const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage("");
 
@@ -102,16 +102,17 @@ export default function Dashboard() {
     let finalCategory: string | null = null;
     let extraInfo = "";
 
-    // PROCESO DE LOGICA CONTABLE CON VALIDACIONES (Sincronizado en inglés)
+    // PROCESO DE LOGICA CONTABLE BLINDADA CONTRA STRINGS SUELTOS
     if (selectedMovementTypeCode === 'income') {
       if (!targetAccountId) {
         setErrorMessage("Debés seleccionar una cuenta destino del sistema.");
         return;
       }
-      finalSource = sourceAccountText || undefined;
+      // Si usó texto libre, finalSource viaja como undefined para no romper el tipo UUID de la BD
+      finalSource = undefined; 
       finalTarget = targetAccountId;
       finalMovementAccountId = targetAccountId;
-      if (sourceAccountText) extraInfo = ` (Origen: ${sourceAccountText})`;
+      if (sourceAccountText) extraInfo = ` (Origen Externo: ${sourceAccountText})`;
 
     } else if (selectedMovementTypeCode === 'expense') {
       if (!sourceAccountId) {
@@ -119,9 +120,10 @@ export default function Dashboard() {
         return;
       }
       finalSource = sourceAccountId;
-      finalTarget = targetAccountText || undefined;
+      // Si usó texto libre, finalTarget viaja como undefined para no romper la BD
+      finalTarget = undefined; 
       finalMovementAccountId = sourceAccountId;
-      if (targetAccountText) extraInfo = ` (Destino: ${targetAccountText})`;
+      if (targetAccountText) extraInfo = ` (Destino Externo: ${targetAccountText})`;
 
     } else if (selectedMovementTypeCode === 'transfer') {
       if (!sourceAccountId || !targetAccountId) {
@@ -169,7 +171,7 @@ export default function Dashboard() {
       fecha: date,
     });
 
-    // Limpieza
+    // Limpieza de estados del formulario
     setDescription("");
     setAmount("");
     setCurrency("ARS");
