@@ -1,13 +1,18 @@
 import { ITransactionRepository, Movement, MovementCodeType, MonedaType } from '../../types/finanzas';
-import { supabase } from '../supabaseClient';
 import { Database } from '../../../supabase_types';
+import { SupabaseClient } from '@supabase/supabase-js';
 
 type SupabaseTransactionRow = Database['public']['Tables']['transactions']['Row'];
 type SupabaseTransactionInsert = Database['public']['Tables']['transactions']['Insert'];
 type SupabaseTransactionUpdate = Database['public']['Tables']['transactions']['Update'];
 
-class SupabaseTransactionRepository implements ITransactionRepository {
+export class SupabaseTransactionRepository implements ITransactionRepository {
+  private supabase: SupabaseClient<Database>;
   private readonly TABLE_NAME = 'transactions';
+
+  constructor(supabase: SupabaseClient<Database>) {
+    this.supabase = supabase;
+  }
 
   // Helper estricto para validar si una cadena tiene estructura de UUID
   private isUUID(str: string | null | undefined): boolean {
@@ -17,9 +22,11 @@ class SupabaseTransactionRepository implements ITransactionRepository {
 
   private toSupabase(
     movement: Omit<Movement, 'id' | 'created_at' | 'movement_type_code'>,
+    userId: string,
     relatedTransactionId?: string
   ): Omit<SupabaseTransactionInsert, 'id' | 'created_at'> {
     return {
+      user_id: userId,
       account_id: movement.cuentaId,
       movement_type_id: movement.movement_type_id,
       // BLINDAJE: Si no es un UUID válido (ej: texto libre como "asd"), se inserta null
@@ -46,10 +53,11 @@ class SupabaseTransactionRepository implements ITransactionRepository {
     };
   }
 
-  async fetchAll(): Promise<Movement[]> {
-    const { data, error } = await supabase
+  async fetchAll(userId: string): Promise<Movement[]> {
+    const { data, error } = await this.supabase
       .from(this.TABLE_NAME)
-      .select('*');
+      .select('*')
+      .eq('user_id', userId);
 
     if (error) {
       throw new Error(`Error fetching transactions: ${error.message}`);
@@ -59,7 +67,7 @@ class SupabaseTransactionRepository implements ITransactionRepository {
     return (data as SupabaseTransactionRow[]).map(this.fromSupabase.bind(this));
   }
 
-  async save(movement: Omit<Movement, 'id' | 'created_at' | 'movement_type_code'>): Promise<void> {
+  async save(movement: Omit<Movement, 'id' | 'created_at' | 'movement_type_code'>, userId: string): Promise<void> {
     const movementTypeCode: MovementCodeType | undefined = (movement as Movement).movement_type_code as MovementCodeType;
 
     if (movementTypeCode === 'transfer' && movement.sourceAccountId && movement.targetAccountId) {
@@ -69,9 +77,9 @@ class SupabaseTransactionRepository implements ITransactionRepository {
         ...rest,
         cuentaId: movement.sourceAccountId,
         monto: -Math.abs(monto),
-      });
+      }, userId);
 
-      const { data: sourceResult, error: sourceError } = await supabase
+      const { data: sourceResult, error: sourceError } = await this.supabase
         .from(this.TABLE_NAME)
         .insert(sourceTransactionData as SupabaseTransactionInsert)
         .select('*');
@@ -92,10 +100,11 @@ class SupabaseTransactionRepository implements ITransactionRepository {
           cuentaId: movement.targetAccountId,
           monto: Math.abs(monto),
         },
+        userId,
         relatedTransactionId
       );
 
-      const { data: targetResult, error: targetError } = await supabase
+      const { data: targetResult, error: targetError } = await this.supabase
         .from(this.TABLE_NAME)
         .insert(targetTransactionData as SupabaseTransactionInsert)
         .select('*');
@@ -104,18 +113,19 @@ class SupabaseTransactionRepository implements ITransactionRepository {
         throw new Error(`Error saving target transfer transaction: ${targetError.message}`);
       }
 
-      const { error: updateSourceError } = await supabase
+      const { error: updateSourceError } = await this.supabase
         .from(this.TABLE_NAME)
         .update({ related_transaction_id: (targetResult as SupabaseTransactionRow[])?.[0]?.id } as SupabaseTransactionUpdate)
-        .eq('id', relatedTransactionId);
+        .eq('id', relatedTransactionId)
+        .eq('user_id', userId);
 
       if (updateSourceError) {
         console.error(`Error updating source transaction with related_transaction_id: ${updateSourceError.message}`);
       }
 
     } else {
-      const supabaseData = this.toSupabase(movement);
-      const { error } = await supabase
+      const supabaseData = this.toSupabase(movement, userId);
+      const { error } = await this.supabase
         .from(this.TABLE_NAME)
         .insert(supabaseData as SupabaseTransactionInsert);
 
@@ -125,11 +135,12 @@ class SupabaseTransactionRepository implements ITransactionRepository {
     }
   }
 
-  async delete(id: string): Promise<void> {
-    const { error } = await supabase
+  async delete(id: string, userId: string): Promise<void> {
+    const { error } = await this.supabase
       .from(this.TABLE_NAME)
       .delete()
-      .eq('id', id);
+      .eq('id', id)
+      .eq('user_id', userId);
 
     if (error) {
       throw new Error(`Error deleting transaction: ${error.message}`);
@@ -137,4 +148,3 @@ class SupabaseTransactionRepository implements ITransactionRepository {
   }
 }
 
-export const supabaseTransactionRepository = new SupabaseTransactionRepository();

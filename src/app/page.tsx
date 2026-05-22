@@ -1,7 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useFinanzasStore } from "@/lib/store.tsx";
+import { useRouter } from "next/navigation";
+import { createClientSupabaseClient } from "@/utils/supabase/client";
+import { useFinanzasStore } from "@/lib/store";
 import AccountDetailModal from "@/components/AccountDetailModal";
 import DashboardKPIs from "@/components/DashboardKPIs";
 import AccountList from "@/components/AccountList";
@@ -10,6 +12,8 @@ import AddTransactionModal from "@/components/modals/AddTransactionModal";
 
 export default function Dashboard() {
   const [mounted, setMounted] = useState(false);
+  const router = useRouter();
+  const supabase = createClientSupabaseClient();
   
   const { 
     movements, 
@@ -22,6 +26,15 @@ export default function Dashboard() {
     getTotalARS, 
     getTotalUSD 
   } = useFinanzasStore();
+
+  useEffect(() => {
+    const checkUser = async () => {
+      const supabase = createClientSupabaseClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      console.log("🚨 DETECTOR EN UI - USUARIO ACTUAL:", user);
+    };
+    checkUser();
+  }, []);
 
   useEffect(() => {
     fetchInitialData();
@@ -68,12 +81,23 @@ export default function Dashboard() {
           <h1 className="text-3xl font-bold text-slate-900">PV Finanzas</h1>
           <p className="text-slate-500">Control de caja</p>
         </div>
-        <button 
-          onClick={() => setIsMovementModalOpen(true)}
-          className="bg-slate-900 text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-slate-800 transition"
-        >
-          + Nueva entrada
-        </button>
+        <div className="flex items-center space-x-4">
+          <button 
+            onClick={async () => {
+              await supabase.auth.signOut();
+              router.push("/login");
+            }}
+            className="bg-red-500 text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-red-600 transition"
+          >
+            Cerrar Sesión
+          </button>
+          <button 
+            onClick={() => setIsMovementModalOpen(true)}
+            className="bg-slate-900 text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-slate-800 transition"
+          >
+            + Nueva entrada
+          </button>
+        </div>
       </div>
 
       <DashboardKPIs />

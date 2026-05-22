@@ -1,9 +1,10 @@
 import { create } from 'zustand';
 
 import { Account, Movement, StoreState, AccountCategory, FinanzasStoreContextType, MonedaType } from '../types/finanzas';
-import { supabaseTransactionRepository } from './repositories/SupabaseTransactionRepository';
-import { supabaseAccountRepository } from './repositories/SupabaseAccountRepository';
-import { supabaseCatalogRepository } from './repositories/SupabaseCatalogRepository';
+import { createClientSupabaseClient } from '../utils/supabase/client';
+import { SupabaseTransactionRepository } from './repositories/SupabaseTransactionRepository';
+import { SupabaseAccountRepository } from './repositories/SupabaseAccountRepository';
+import { SupabaseCatalogRepository } from './repositories/SupabaseCatalogRepository';
 
 const initialState: StoreState = {
   movements: [],
@@ -13,19 +14,28 @@ const initialState: StoreState = {
   movementTypes: [],
 };
 
-export const useFinanzasStore = create<FinanzasStoreContextType>((set, get) => ({
-  ...initialState,
+export const useFinanzasStore = create<FinanzasStoreContextType>((set, get) => {
+  return {
+    ...initialState,
 
   // 1. CARGA DE DATOS ORQUESTADA A TRAVÉS DE REPOSITORIOS
   fetchInitialData: async () => {
     try {
+      const supabase = createClientSupabaseClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const supabaseTransactionRepository = new SupabaseTransactionRepository(supabase);
+      const supabaseAccountRepository = new SupabaseAccountRepository(supabase);
+      const supabaseCatalogRepository = new SupabaseCatalogRepository(supabase);
+
       // Catálogos auxiliares
       const [accountGroups, accountCategories, movementTypes, movements, accounts] = await Promise.all([
-        supabaseCatalogRepository.fetchGroups(),
-        supabaseCatalogRepository.fetchCategories(),
-        supabaseCatalogRepository.fetchMovementTypes(),
-        supabaseTransactionRepository.fetchAll(),
-        supabaseAccountRepository.fetchAll()
+        supabaseCatalogRepository.fetchGroups(user.id),
+        supabaseCatalogRepository.fetchCategories(user.id),
+        supabaseCatalogRepository.fetchMovementTypes(user.id),
+        supabaseTransactionRepository.fetchAll(user.id),
+        supabaseAccountRepository.fetchAll(user.id)
       ]);
 
       set({
@@ -43,7 +53,11 @@ export const useFinanzasStore = create<FinanzasStoreContextType>((set, get) => (
   // 2. OPERACIONES DE MOVIMIENTOS DESACOPLADAS
   addMovement: async (mov) => {
     try {
-      await supabaseTransactionRepository.save(mov);
+      const supabase = createClientSupabaseClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const supabaseTransactionRepository = new SupabaseTransactionRepository(supabase);
+      await supabaseTransactionRepository.save(mov, user.id);
       await get().fetchInitialData(); // Sincroniza estado local automáticamente
     } catch (err) {
       console.error('Error al delegar inserción de movimiento:', err);
@@ -52,7 +66,11 @@ export const useFinanzasStore = create<FinanzasStoreContextType>((set, get) => (
 
   deleteMovement: async (id) => {
     try {
-      await supabaseTransactionRepository.delete(id);
+      const supabase = createClientSupabaseClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const supabaseTransactionRepository = new SupabaseTransactionRepository(supabase);
+      await supabaseTransactionRepository.delete(id, user.id);
       await get().fetchInitialData();
     } catch (err) {
       console.error('Error al delegar eliminación de movimiento:', err);
@@ -62,7 +80,11 @@ export const useFinanzasStore = create<FinanzasStoreContextType>((set, get) => (
   // 3. OPERACIONES DE CUENTAS DESACOPLADAS
   addAccount: async (nuevaCuenta) => {
     try {
-      await supabaseAccountRepository.save(nuevaCuenta);
+      const supabase = createClientSupabaseClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const supabaseAccountRepository = new SupabaseAccountRepository(supabase);
+      await supabaseAccountRepository.save(nuevaCuenta, user.id);
       await get().fetchInitialData();
     } catch (err) {
       console.error('Error al delegar creación de cuenta:', err);
@@ -71,7 +93,11 @@ export const useFinanzasStore = create<FinanzasStoreContextType>((set, get) => (
 
   updateAccount: async (cuentaModificada) => {
     try {
-      await supabaseAccountRepository.update(cuentaModificada);
+      const supabase = createClientSupabaseClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const supabaseAccountRepository = new SupabaseAccountRepository(supabase);
+      await supabaseAccountRepository.update(cuentaModificada, user.id);
       await get().fetchInitialData();
     } catch (err) {
       console.error('Error al delegar actualización de cuenta:', err);
@@ -80,7 +106,11 @@ export const useFinanzasStore = create<FinanzasStoreContextType>((set, get) => (
 
   deleteAccount: async (id) => {
     try {
-      await supabaseAccountRepository.delete(id);
+      const supabase = createClientSupabaseClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const supabaseAccountRepository = new SupabaseAccountRepository(supabase);
+      await supabaseAccountRepository.delete(id, user.id);
       await get().fetchInitialData();
     } catch (err) {
       console.error('Error al delegar eliminación de cuenta:', err);
@@ -90,7 +120,11 @@ export const useFinanzasStore = create<FinanzasStoreContextType>((set, get) => (
   // 4. MANTENIMIENTO DE ESTRUCTURAS SECUNDARIAS
   addAccountGroup: async (name: string) => {
     try {
-      await supabaseCatalogRepository.addGroup(name);
+      const supabase = createClientSupabaseClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const supabaseCatalogRepository = new SupabaseCatalogRepository(supabase);
+      await supabaseCatalogRepository.addGroup(name, user.id);
       await get().fetchInitialData();
     } catch (error) {
       console.error(error);
@@ -99,7 +133,11 @@ export const useFinanzasStore = create<FinanzasStoreContextType>((set, get) => (
 
   updateAccountGroup: async (oldName: string, newName: string) => {
     try {
-      await supabaseCatalogRepository.updateGroup(oldName, newName);
+      const supabase = createClientSupabaseClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const supabaseCatalogRepository = new SupabaseCatalogRepository(supabase);
+      await supabaseCatalogRepository.updateGroup(oldName, newName, user.id);
       await get().fetchInitialData();
     } catch (error) {
       console.error(error);
@@ -108,7 +146,11 @@ export const useFinanzasStore = create<FinanzasStoreContextType>((set, get) => (
 
   deleteAccountGroup: async (name: string) => {
     try {
-      await supabaseCatalogRepository.deleteGroup(name);
+      const supabase = createClientSupabaseClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const supabaseCatalogRepository = new SupabaseCatalogRepository(supabase);
+      await supabaseCatalogRepository.deleteGroup(name, user.id);
       await get().fetchInitialData();
     } catch (error) {
       console.error(error);
@@ -117,7 +159,11 @@ export const useFinanzasStore = create<FinanzasStoreContextType>((set, get) => (
 
   addAccountCategory: async (name: string) => {
     try {
-      await supabaseCatalogRepository.addCategory(name);
+      const supabase = createClientSupabaseClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const supabaseCatalogRepository = new SupabaseCatalogRepository(supabase);
+      await supabaseCatalogRepository.addCategory(name, user.id);
       await get().fetchInitialData();
     } catch (error) {
       console.error(error);
@@ -126,7 +172,11 @@ export const useFinanzasStore = create<FinanzasStoreContextType>((set, get) => (
 
   updateAccountCategory: async (oldName: string, newName: string) => {
     try {
-      await supabaseCatalogRepository.updateCategory(oldName, newName);
+      const supabase = createClientSupabaseClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const supabaseCatalogRepository = new SupabaseCatalogRepository(supabase);
+      await supabaseCatalogRepository.updateCategory(oldName, newName, user.id);
       await get().fetchInitialData();
     } catch (error) {
       console.error(error);
@@ -135,7 +185,11 @@ export const useFinanzasStore = create<FinanzasStoreContextType>((set, get) => (
 
   deleteAccountCategory: async (name: string) => {
     try {
-      await supabaseCatalogRepository.deleteCategory(name);
+      const supabase = createClientSupabaseClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const supabaseCatalogRepository = new SupabaseCatalogRepository(supabase);
+      await supabaseCatalogRepository.deleteCategory(name, user.id);
       await get().fetchInitialData();
     } catch (error) {
       console.error(error);
@@ -220,4 +274,5 @@ export const useFinanzasStore = create<FinanzasStoreContextType>((set, get) => (
       });
     return res;
   }
-}));
+};
+});

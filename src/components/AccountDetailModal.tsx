@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from "react";
-import { useFinanzasStore } from "@/lib/store.tsx";
+import { useFinanzasStore } from "@/lib/store";
 import { Movement, Account } from "../types/finanzas";
 
 interface AccountDetailModalProps {
@@ -40,17 +40,17 @@ const AccountDetailModal: React.FC<AccountDetailModalProps> = ({ accountId, onCl
     if (!selectedAccount) return;
 
     let tempMovements = allMovements.filter((m) =>
-      m.sourceAccountId === selectedAccount.id || m.targetAccountId === selectedAccount.id
+      m.cuentaId === selectedAccount.id || m.sourceAccountId === selectedAccount.id || m.targetAccountId === selectedAccount.id
     );
 
     if (start) {
-      tempMovements = tempMovements.filter((m) => m.fecha >= start);
+      tempMovements = tempMovements.filter((m) => m.fecha.split('T')[0] >= start);
     }
     if (end) {
-      tempMovements = tempMovements.filter((m) => m.fecha <= end);
+      tempMovements = tempMovements.filter((m) => m.fecha.split('T')[0] <= end);
     }
     if (typeFilter !== "all") {
-      tempMovements = tempMovements.filter((m) => m.tipo === typeFilter);
+      tempMovements = tempMovements.filter((m) => m.movement_type_code === typeFilter);
     }
 
     setFilteredMovements(tempMovements);
@@ -182,8 +182,8 @@ const AccountDetailModal: React.FC<AccountDetailModalProps> = ({ accountId, onCl
                         <td className="p-3">{m.fecha}</td>
                         <td className="p-3">{m.descripcion}</td>
                         <td className="p-3 text-center">
-                          <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${m.tipo === 'income' ? 'bg-green-100 text-green-700' : m.tipo === 'expense' ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'}`}>
-                            {m.tipo === 'income' ? 'Ingreso' : m.tipo === 'expense' ? 'Egreso' : 'Transferencia'}
+                            <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${m.movement_type_code === 'income' ? 'bg-green-100 text-green-700' : m.movement_type_code === 'expense' ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'}`}>
+                              {m.movement_type_code === 'income' ? 'Ingreso' : m.movement_type_code === 'expense' ? 'Egreso' : 'Transferencia'}
                           </span>
                         </td>
                         <td className={`p-3 text-right font-bold ${amountClass}`}>

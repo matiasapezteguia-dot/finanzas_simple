@@ -1,7 +1,6 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { v4 as uuidv4 } from 'uuid';
 import { Account, IAccountRepository, AccountGroup, AccountCategory, MonedaType } from '../../types/finanzas';
-import { supabase } from '../supabaseClient';
 import { Database } from '../../../supabase_types';
 
 type AccountRow = Database['public']['Tables']['accounts']['Row'];
@@ -15,12 +14,16 @@ type AccountWithRelations = AccountRow & {
   account_categories: Pick<AccountCategoryRow, 'name'> | null;
 };
 
-class SupabaseAccountRepository implements IAccountRepository {
-  constructor() {}
+export class SupabaseAccountRepository implements IAccountRepository {
+  private supabase: SupabaseClient<Database>;
 
-  async fetchAll(): Promise<Account[]> {
+  constructor(supabase: SupabaseClient<Database>) {
+    this.supabase = supabase;
+  }
+
+  async fetchAll(userId: string): Promise<Account[]> {
     // CORREGIDO: Mapeo de select con los campos reales de la tabla física en PostgreSQL
-    const { data, error } = await supabase
+    const { data, error } = await this.supabase
       .from('accounts')
       .select(`
         id,
@@ -30,7 +33,8 @@ class SupabaseAccountRepository implements IAccountRepository {
         created_at,
         account_groups (name),
         account_categories (name)
-      `) as { data: AccountWithRelations[] | null; error: Error | null };
+      `)
+      .eq('user_id', userId) as { data: AccountWithRelations[] | null; error: Error | null };
 
     if (error) {
       console.error('Error fetching accounts:', error);
@@ -53,13 +57,13 @@ class SupabaseAccountRepository implements IAccountRepository {
     }));
   }
 
-  async save(account: Omit<Account, 'id' | 'created_at'>): Promise<Account> {
+  async save(account: Omit<Account, 'id' | 'created_at'>, userId: string): Promise<Account> {
     const newId = uuidv4();
     let groupId: string | null = null;
     let categoryId: string | null = null;
 
     if (account.grupo) {
-      const { data: groupData, error: groupError } = await supabase
+      const { data: groupData, error: groupError } = await this.supabase
         .from('account_groups')
         .select('id')
         .eq('name', account.grupo)
@@ -73,7 +77,7 @@ class SupabaseAccountRepository implements IAccountRepository {
     }
 
     if (account.categoria) {
-      const { data: categoryData, error: categoryError } = await supabase
+      const { data: categoryData, error: categoryError } = await this.supabase
         .from('account_categories')
         .select('id')
         .eq('name', account.categoria)
@@ -88,6 +92,7 @@ class SupabaseAccountRepository implements IAccountRepository {
 
     const accountToInsert: AccountInsert = {
       id: newId,
+      user_id: userId,
       name: account.nombre,
       account_group_id: groupId,
       account_category_id: categoryId,
@@ -96,7 +101,7 @@ class SupabaseAccountRepository implements IAccountRepository {
       current_amount: Number(account.montoInicial) || 0,
     };
 
-    const { data, error } = await supabase
+    const { data, error } = await this.supabase
       .from('accounts')
       .insert(accountToInsert)
       .select()
@@ -118,12 +123,12 @@ class SupabaseAccountRepository implements IAccountRepository {
     };
   }
 
-  async update(account: Account): Promise<void> {
+  async update(account: Account, userId: string): Promise<void> {
     let groupId: string | null = null;
     let categoryId: string | null = null;
 
     if (account.grupo) {
-      const { data: groupData, error: groupError } = await supabase
+      const { data: groupData, error: groupError } = await this.supabase
         .from('account_groups')
         .select('id')
         .eq('name', account.grupo)
@@ -137,7 +142,7 @@ class SupabaseAccountRepository implements IAccountRepository {
     }
 
     if (account.categoria) {
-      const { data: categoryData, error: categoryError } = await supabase
+      const { data: categoryData, error: categoryError } = await this.supabase
         .from('account_categories')
         .select('id')
         .eq('name', account.categoria)
@@ -158,10 +163,11 @@ class SupabaseAccountRepository implements IAccountRepository {
       initial_amount: Number(account.montoInicial) || 0,
     };
 
-    const { error } = await supabase
+    const { error } = await this.supabase
       .from('accounts')
       .update(accountToUpdate)
-      .eq('id', account.id);
+      .eq('id', account.id)
+      .eq('user_id', userId);
 
     if (error) {
       console.error('Error updating account:', error);
@@ -169,11 +175,12 @@ class SupabaseAccountRepository implements IAccountRepository {
     }
   }
 
-  async delete(id: string): Promise<void> {
-    const { error } = await supabase
+  async delete(id: string, userId: string): Promise<void> {
+    const { error } = await this.supabase
       .from('accounts')
       .delete()
-      .eq('id', id);
+      .eq('id', id)
+      .eq('user_id', userId);
 
     if (error) {
       console.error('Error deleting account:', error);
@@ -182,4 +189,3 @@ class SupabaseAccountRepository implements IAccountRepository {
   }
 }
 
-export const supabaseAccountRepository = new SupabaseAccountRepository();

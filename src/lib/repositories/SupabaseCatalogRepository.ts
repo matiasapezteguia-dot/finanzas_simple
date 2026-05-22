@@ -1,10 +1,15 @@
-import { supabase } from '../supabaseClient'; // Corregido el path relativo según la estructura usual
 import { ICatalogRepository, AccountCategory, MovementTypeItem } from '../../types/finanzas';
 import { Database } from '../../../supabase_types';
+import { SupabaseClient } from '@supabase/supabase-js';
 
-class SupabaseCatalogRepository implements ICatalogRepository {
-  async fetchGroups(): Promise<string[]> {
-    const { data, error } = await supabase
+export class SupabaseCatalogRepository implements ICatalogRepository {
+  private supabase: SupabaseClient<Database>;
+
+  constructor(supabase: SupabaseClient<Database>) {
+    this.supabase = supabase;
+  }
+  async fetchGroups(userId: string): Promise<string[]> {
+    const { data, error } = await this.supabase
       .from('account_groups')
       .select('name');
 
@@ -16,8 +21,8 @@ class SupabaseCatalogRepository implements ICatalogRepository {
     return data.map((group: Pick<Database['public']['Tables']['account_groups']['Row'], 'name'>) => group.name);
   }
 
-  async fetchCategories(): Promise<AccountCategory[]> {
-    const { data, error } = await supabase
+  async fetchCategories(userId: string): Promise<AccountCategory[]> {
+    const { data, error } = await this.supabase
       .from('account_categories')
       .select('id, name'); // CORREGIDO: Eliminado 'created_at' que causaba el quiebre
 
@@ -29,8 +34,8 @@ class SupabaseCatalogRepository implements ICatalogRepository {
     return data as Database['public']['Tables']['account_categories']['Row'][];
   }
 
-  async fetchMovementTypes(): Promise<MovementTypeItem[]> {
-    const { data, error } = await supabase
+  async fetchMovementTypes(userId: string): Promise<MovementTypeItem[]> {
+    const { data, error } = await this.supabase
       .from('movement_types')
       .select('id, name, code');
 
@@ -42,8 +47,8 @@ class SupabaseCatalogRepository implements ICatalogRepository {
     return data as MovementTypeItem[];
   }
 
-  async addCategory(name: string): Promise<void> {
-    const { error } = await supabase
+  async addCategory(name: string, userId: string): Promise<void> {
+    const { error } = await this.supabase
       .from('account_categories')
       .insert([{ name }]);
 
@@ -53,8 +58,8 @@ class SupabaseCatalogRepository implements ICatalogRepository {
     }
   }
 
-  async deleteCategory(id: string): Promise<void> {
-    const { error } = await supabase
+  async deleteCategory(id: string, userId: string): Promise<void> {
+    const { error } = await this.supabase
       .from('account_categories')
       .delete()
       .eq('id', id);
@@ -65,8 +70,8 @@ class SupabaseCatalogRepository implements ICatalogRepository {
     }
   }
 
-  async addGroup(name: string): Promise<void> {
-    const { error } = await supabase
+  async addGroup(name: string, userId: string): Promise<void> {
+    const { error } = await this.supabase
       .from('account_groups')
       .insert([{ name }]);
 
@@ -76,8 +81,8 @@ class SupabaseCatalogRepository implements ICatalogRepository {
     }
   }
 
-  async deleteGroup(id: string): Promise<void> {
-    const { error } = await supabase
+  async deleteGroup(id: string, userId: string): Promise<void> {
+    const { error } = await this.supabase
       .from('account_groups')
       .delete()
       .eq('id', id);
@@ -87,8 +92,8 @@ class SupabaseCatalogRepository implements ICatalogRepository {
       throw new Error(error.message);
     }
   }
-  async updateGroup(oldName: string, newName: string): Promise<void> {
-    const { error } = await supabase
+  async updateGroup(oldName: string, newName: string, userId: string): Promise<void> {
+    const { error } = await this.supabase
       .from('account_groups')
       .update({ name: newName })
       .eq('name', oldName);
@@ -99,8 +104,8 @@ class SupabaseCatalogRepository implements ICatalogRepository {
     }
   }
 
-  async updateCategory(oldName: string, newName: string): Promise<void> {
-    const { error } = await supabase
+  async updateCategory(oldName: string, newName: string, userId: string): Promise<void> {
+    const { error } = await this.supabase
       .from('account_categories')
       .update({ name: newName })
       .eq('name', oldName);
@@ -112,4 +117,3 @@ class SupabaseCatalogRepository implements ICatalogRepository {
   }
 }
 
-export const supabaseCatalogRepository = new SupabaseCatalogRepository();
