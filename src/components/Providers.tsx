@@ -18,12 +18,23 @@ export function AppProviders({ children }: AppProvidersProps) {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         if (session) {
-          const { data: profileData } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', session.user.id)
-            .single();
-          setProfile(profileData as Profile);
+          try {
+            const { data: profileData, error } = await supabase
+              .from('profiles')
+              .select('*')
+              .eq('id', session.user.id)
+              .single();
+
+            if (error) {
+              console.error('Error fetching profile:', error);
+              setProfile(null);
+            } else {
+              setProfile(profileData as Profile);
+            }
+          } catch (error) {
+            console.error('Unhandled error fetching profile:', error);
+            setProfile(null);
+          }
         } else {
           setProfile(null);
         }

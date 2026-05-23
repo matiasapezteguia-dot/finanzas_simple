@@ -34,10 +34,10 @@ export class SupabaseCatalogRepository implements ICatalogRepository {
     return data as Database['public']['Tables']['account_categories']['Row'][];
   }
 
-  async fetchMovementTypes(): Promise<MovementTypeItem[]> {
+  async fetchTransactionTypes(): Promise<MovementTypeItem[]> {
     const { data, error } = await this.supabase
-    .from('transaction_types')
-    .select('id, name, code');
+      .from('transaction_types')
+      .select('id, name, code');
 
     if (error) {
       console.error('Error fetching movement types:', error);

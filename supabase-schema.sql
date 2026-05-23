@@ -4,15 +4,15 @@ CREATE TYPE public.currency_enum AS ENUM ('ARS', 'USD');
 -- Create ENUM for account types
 CREATE TYPE public.account_type_enum AS ENUM ('bancaria', 'billetera', 'cripto');
 
--- Table: public.movement_types
-CREATE TABLE public.movement_types (
+-- Table: public.transaction_types
+CREATE TABLE public.transaction_types (
     id uuid DEFAULT gen_random_uuid() NOT NULL PRIMARY KEY,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     name text NOT NULL,
     code text NOT NULL UNIQUE
 );
-ALTER TABLE public.movement_types ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Public movement types are viewable by everyone." ON public.movement_types FOR SELECT USING (true);
+ALTER TABLE public.transaction_types ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Public transaction types are viewable by everyone." ON public.transaction_types FOR SELECT USING (true);
 
 
 -- Table: public.profiles (to extend Supabase auth.users)
@@ -58,7 +58,7 @@ CREATE TABLE public.transactions (
     user_id uuid REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
     account_id uuid REFERENCES public.accounts(id) ON DELETE CASCADE NOT NULL,
     category_id uuid REFERENCES public.categories(id) ON DELETE SET NULL, -- Nullable for transfers
-    movement_type_id uuid REFERENCES public.movement_types(id) ON DELETE RESTRICT NOT NULL,
+    movement_type_id uuid REFERENCES public.transaction_types(id) ON DELETE RESTRICT NOT NULL,
     amount numeric NOT NULL,
     description text,
     transaction_date date DEFAULT now() NOT NULL,
@@ -79,7 +79,7 @@ DECLARE
     old_movement_type_code text;
 BEGIN
     IF TG_OP = 'INSERT' THEN
-        SELECT mt.code INTO old_movement_type_code FROM public.movement_types mt WHERE mt.id = NEW.movement_type_id;
+    SELECT mt.code INTO old_movement_type_code FROM public.transaction_types mt WHERE mt.id = NEW.movement_type_id;
         IF old_movement_type_code = 'ingreso' THEN
             UPDATE public.accounts SET current_balance = current_balance + NEW.amount WHERE id = NEW.account_id;
         ELSIF old_movement_type_code = 'egreso' THEN
@@ -91,7 +91,7 @@ BEGIN
         END IF;
     ELSIF TG_OP = 'UPDATE' THEN
         -- Revert old amount and apply new amount
-        SELECT t.amount, mt.code INTO old_amount, old_movement_type_code FROM public.transactions t JOIN public.movement_types mt ON t.movement_type_id = mt.id WHERE t.id = OLD.id;
+        SELECT t.amount, mt.code INTO old_amount, old_movement_type_code FROM public.transactions t JOIN public.transaction_types mt ON t.movement_type_id = mt.id WHERE t.id = OLD.id;
 
         IF old_movement_type_code = 'ingreso' THEN
             UPDATE public.accounts SET current_balance = current_balance - old_amount WHERE id = OLD.account_id;
@@ -103,7 +103,7 @@ BEGIN
             UPDATE public.accounts SET current_balance = current_balance - old_amount WHERE id = OLD.account_id;
         END IF;
 
-        SELECT mt.code INTO old_movement_type_code FROM public.movement_types mt WHERE mt.id = NEW.movement_type_id;
+        SELECT mt.code INTO old_movement_type_code FROM public.transaction_types mt WHERE mt.id = NEW.movement_type_id;
         IF old_movement_type_code = 'ingreso' THEN
             UPDATE public.accounts SET current_balance = current_balance + NEW.amount WHERE id = NEW.account_id;
         ELSIF old_movement_type_code = 'egreso' THEN
@@ -115,7 +115,7 @@ BEGIN
         END IF;
 
     ELSIF TG_OP = 'DELETE' THEN
-        SELECT mt.code INTO old_movement_type_code FROM public.movement_types mt WHERE mt.id = OLD.movement_type_id;
+        SELECT mt.code INTO old_movement_type_code FROM public.transaction_types mt WHERE mt.id = OLD.movement_type_id;
         IF old_movement_type_code = 'ingreso' THEN
             UPDATE public.accounts SET current_balance = current_balance - OLD.amount WHERE id = OLD.account_id;
         ELSIF old_movement_type_code = 'egreso' THEN
@@ -145,7 +145,7 @@ DECLARE
     converted_amount NUMERIC;
     movement_code text;
 BEGIN
-    SELECT mt.code INTO movement_code FROM public.movement_types mt WHERE mt.id = NEW.movement_type_id;
+    SELECT mt.code INTO movement_code FROM public.transaction_types mt WHERE mt.id = NEW.movement_type_id;
     IF movement_code = 'transferencia' AND NEW.related_transaction_id IS NULL THEN
         -- This is the *initiating* leg of a transfer (outflow from source account)
         -- Create the corresponding inflow transaction for the target account
@@ -195,12 +195,12 @@ SET current_balance = (
         WHEN mt.code = 'ajuste' THEN T.amount
         ELSE 0
     END), 0)
-    FROM public.transactions T JOIN public.movement_types mt ON T.movement_type_id = mt.id
+    FROM public.transactions T JOIN public.transaction_types mt ON T.movement_type_id = mt.id
     WHERE T.account_id = public.accounts.id
 ) + initial_balance;
 
--- Insert default movement types if they don't exist
-INSERT INTO public.movement_types (name, code)
+-- Insert default transaction types if they don't exist
+INSERT INTO public.transaction_types (name, code)
 VALUES
     ('Ingreso', 'ingreso'),
     ('Egreso', 'egreso'),

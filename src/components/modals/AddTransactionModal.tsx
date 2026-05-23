@@ -9,7 +9,7 @@ interface AddTransactionModalProps {
 }
 
 export default function AddTransactionModal({ isOpen, onClose }: AddTransactionModalProps) {
-  const { addMovement, accounts, movementTypes } = useFinanzasStore();
+  const { addMovement, accounts, transactionTypes } = useFinanzasStore();
 
   const [selectedMovementTypeId, setSelectedMovementTypeId] = useState<string>('');
   const [selectedMovementTypeCode, setSelectedMovementTypeCode] = useState<string>('income');
@@ -28,17 +28,17 @@ export default function AddTransactionModal({ isOpen, onClose }: AddTransactionM
 
   // Setea el tipo por defecto UNA SOLA VEZ cuando llegan los movementTypes, previniendo loops asincrónicos
   useEffect(() => {
-    if (movementTypes && movementTypes.length > 0 && !selectedMovementTypeId) {
-      const defaultIncomeType = movementTypes.find(mt => mt.code === 'income');
+    if (transactionTypes && transactionTypes.length > 0 && !selectedMovementTypeId) {
+      const defaultIncomeType = transactionTypes.find(mt => mt.code === 'income');
       if (defaultIncomeType) {
         setSelectedMovementTypeId(defaultIncomeType.id);
         setSelectedMovementTypeCode('income');
       } else {
-        setSelectedMovementTypeId(movementTypes[0].id);
-        setSelectedMovementTypeCode(movementTypes[0].code || '');
+        setSelectedMovementTypeId(transactionTypes[0].id);
+        setSelectedMovementTypeCode(transactionTypes[0].code || '');
       }
     }
-  }, [movementTypes]); // Se removió selectedMovementTypeId de las dependencias para matar el bucle
+  }, [transactionTypes]); // Se removió selectedMovementTypeId de las dependencias para matar el bucle
 
   const isSelectOrigenDisabled = selectedMovementTypeCode === 'income' || selectedMovementTypeCode === 'adjustment';
   const isTextOrigenDisabled = selectedMovementTypeCode === 'expense' || selectedMovementTypeCode === 'transfer' || selectedMovementTypeCode === 'adjustment';
@@ -173,7 +173,7 @@ export default function AddTransactionModal({ isOpen, onClose }: AddTransactionM
                 value={selectedMovementTypeId}
                 onChange={(e) => {
                   const targetId = e.target.value;
-                  const foundType = movementTypes.find(mt => mt.id === targetId);
+                  const foundType = transactionTypes.find(mt => mt.id === targetId);
                   setSelectedMovementTypeId(targetId);
                   setSelectedMovementTypeCode(foundType ? (foundType.code || '') : '');
                   
@@ -184,7 +184,7 @@ export default function AddTransactionModal({ isOpen, onClose }: AddTransactionM
                 }}
                 className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white focus:outline-none focus:border-slate-900 text-sm"
               >
-                {(movementTypes || []).map((mt) => (
+                {(transactionTypes || []).map((mt) => (
                   <option key={mt.id} value={mt.id}>{mt.name}</option>
                 ))}
               </select>

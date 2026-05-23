@@ -11,7 +11,7 @@ const initialState: StoreState = {
   accounts: [],
   accountGroups: ['Bancos', 'Efectivo', 'Brókers'],
   accountCategories: [],
-  movementTypes: [],
+  transactionTypes: [],
   profile: null,
 };
 
@@ -31,10 +31,10 @@ export const useFinanzasStore = create<FinanzasStoreContextType>((set, get) => {
       const supabaseCatalogRepository = new SupabaseCatalogRepository(supabase);
 
       // Catálogos auxiliares
-      const [accountGroups, accountCategories, movementTypes, movements, accounts] = await Promise.all([
+      const [accountGroups, accountCategories, transactionTypes, movements, accounts] = await Promise.all([
         supabaseCatalogRepository.fetchGroups(),
         supabaseCatalogRepository.fetchCategories(),
-        supabaseCatalogRepository.fetchMovementTypes(),
+        supabaseCatalogRepository.fetchTransactionTypes(),
         supabaseTransactionRepository.fetchAll(),
         supabaseAccountRepository.fetchAll()
       ]);
@@ -42,7 +42,7 @@ export const useFinanzasStore = create<FinanzasStoreContextType>((set, get) => {
       set({
         accountGroups,
         accountCategories,
-        movementTypes,
+        transactionTypes,
         movements,
         accounts
       });
@@ -186,7 +186,7 @@ export const useFinanzasStore = create<FinanzasStoreContextType>((set, get) => {
       .filter((m) => m.cuentaId === accountId)
       .reduce((acc, m) => {
         // 1. Buscar el tipo de movimiento en el catálogo usando el ID real de la base de datos
-        const tipoEncontrado = get().movementTypes.find(
+        const tipoEncontrado = get().transactionTypes.find(
           (t) => t.id === m.movement_type_id || t.id === (m as any).typeId
         );
         

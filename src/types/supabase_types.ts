@@ -113,7 +113,7 @@ export type Database = {
         }
         Relationships: []
       }
-      movement_types: {
+      transaction_types: {
         Row: {
           code: string
           created_at: string
@@ -253,7 +253,7 @@ export type Database = {
             foreignKeyName: "transactions_movement_type_id_fkey"
             columns: ["movement_type_id"]
             isOneToOne: false
-            referencedRelation: "movement_types"
+            referencedRelation: "transaction_types"
             referencedColumns: ["id"]
           },
         ]

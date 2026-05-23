@@ -81,7 +81,7 @@ export interface IAccountRepository {
 export interface ICatalogRepository {
   fetchGroups(): Promise<string[]>;
   fetchCategories(): Promise<AccountCategory[]>;
-  fetchMovementTypes(): Promise<MovementTypeItem[]>;
+  fetchTransactionTypes(): Promise<MovementTypeItem[]>;
   addCategory(name: string): Promise<void>;
   deleteCategory(id: string): Promise<void>;
   addGroup(name: string): Promise<void>;
@@ -99,7 +99,7 @@ export interface StoreState {
   accounts: Account[];
   accountGroups: string[];
   accountCategories: AccountCategory[];
-  movementTypes: MovementTypeItem[];
+  transactionTypes: MovementTypeItem[];
   profile: Profile | null;
 }
 
