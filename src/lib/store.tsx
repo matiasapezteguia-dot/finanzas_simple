@@ -12,11 +12,14 @@ const initialState: StoreState = {
   accountGroups: ['Bancos', 'Efectivo', 'Brókers'],
   accountCategories: [],
   movementTypes: [],
+  profile: null,
 };
 
 export const useFinanzasStore = create<FinanzasStoreContextType>((set, get) => {
   return {
     ...initialState,
+
+    setProfile: (profile) => set({ profile }),
 
   // 1. CARGA DE DATOS ORQUESTADA A TRAVÉS DE REPOSITORIOS
   fetchInitialData: async () => {

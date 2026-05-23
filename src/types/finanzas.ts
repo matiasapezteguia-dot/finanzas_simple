@@ -53,6 +53,14 @@ export interface Movement {
   created_at?: string;
 }
 
+export interface Profile {
+  id: string;
+  nombre: string;
+  email: string;
+  rol: 'admin' | 'operator' | 'viewer';
+  created_at?: string;
+}
+
 // ==========================================================
 // 3. CONTRATOS DE REPOSITORIO (Abstracción de Persistencia)
 // ==========================================================
@@ -92,6 +100,7 @@ export interface StoreState {
   accountGroups: string[];
   accountCategories: AccountCategory[];
   movementTypes: MovementTypeItem[];
+  profile: Profile | null;
 }
 
 export interface FinanzasStoreContextType extends StoreState {
@@ -115,4 +124,5 @@ export interface FinanzasStoreContextType extends StoreState {
   addAccountCategory: (category: string) => Promise<void>;
   updateAccountCategory: (oldName: string, newName: string) => Promise<void>;
   deleteAccountCategory: (category: string) => Promise<void>;
+  setProfile: (profile: Profile | null) => void;
 }

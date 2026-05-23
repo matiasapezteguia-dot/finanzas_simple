@@ -113,7 +113,7 @@ export type Database = {
         }
         Relationships: []
       }
-      movement_types: {
+      transaction_types: {
         Row: {
           code: string
           created_at: string
@@ -131,45 +131,6 @@ export type Database = {
           created_at?: string
           id?: string
           name?: string
-        }
-        Relationships: []
-      }
-      movements: {
-        Row: {
-          account_id: string | null
-          amount: number
-          category_id: string | null
-          created_at: string
-          currency: string
-          description: string | null
-          id: string
-          movement_type_id: string | null
-          transaction_date: string
-          user_id: string | null
-        }
-        Insert: {
-          account_id?: string | null
-          amount?: number
-          category_id?: string | null
-          created_at?: string
-          currency?: string
-          description?: string | null
-          id?: string
-          movement_type_id?: string | null
-          transaction_date?: string
-          user_id?: string | null
-        }
-        Update: {
-          account_id?: string | null
-          amount?: number
-          category_id?: string | null
-          created_at?: string
-          currency?: string
-          description?: string | null
-          id?: string
-          movement_type_id?: string | null
-          transaction_date?: string
-          user_id?: string | null
         }
         Relationships: []
       }
@@ -253,7 +214,7 @@ export type Database = {
             foreignKeyName: "transactions_movement_type_id_fkey"
             columns: ["movement_type_id"]
             isOneToOne: false
-            referencedRelation: "movement_types"
+            referencedRelation: "transaction_types"
             referencedColumns: ["id"]
           },
         ]
