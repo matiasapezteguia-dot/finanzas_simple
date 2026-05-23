@@ -58,28 +58,28 @@ export interface Movement {
 // ==========================================================
 
 export interface ITransactionRepository {
-  fetchAll(userId: string): Promise<Movement[]>;
-  save(movement: Omit<Movement, 'id' | 'created_at' | 'movement_type_code'>, userId: string): Promise<void>;
-  delete(id: string, userId: string): Promise<void>;
+  fetchAll(): Promise<Movement[]>;
+  save(movement: Omit<Movement, 'id' | 'created_at' | 'movement_type_code'>): Promise<void>;
+  delete(id: string): Promise<void>;
 }
 
 export interface IAccountRepository {
-  fetchAll(userId: string): Promise<Account[]>;
-  save(account: Omit<Account, 'id' | 'created_at'>, userId: string): Promise<Account>;
-  update(account: Account, userId: string): Promise<void>;
-  delete(id: string, userId: string): Promise<void>;
+  fetchAll(): Promise<Account[]>;
+  save(account: Omit<Account, 'id' | 'created_at'>): Promise<Account>;
+  update(account: Account): Promise<void>;
+  delete(id: string): Promise<void>;
 }
 
 export interface ICatalogRepository {
-  fetchGroups(userId: string): Promise<string[]>;
-  fetchCategories(userId: string): Promise<AccountCategory[]>;
-  fetchMovementTypes(userId: string): Promise<MovementTypeItem[]>;
-  addCategory(name: string, userId: string): Promise<void>;
-  deleteCategory(id: string, userId: string): Promise<void>;
-  addGroup(name: string, userId: string): Promise<void>;
-  deleteGroup(id: string, userId: string): Promise<void>;
-  updateGroup(oldName: string, newName: string, userId: string): Promise<void>;
-  updateCategory(oldName: string, newName: string, userId: string): Promise<void>;
+  fetchGroups(): Promise<string[]>;
+  fetchCategories(): Promise<AccountCategory[]>;
+  fetchMovementTypes(): Promise<MovementTypeItem[]>;
+  addCategory(name: string): Promise<void>;
+  deleteCategory(id: string): Promise<void>;
+  addGroup(name: string): Promise<void>;
+  deleteGroup(id: string): Promise<void>;
+  updateGroup(oldName: string, newName: string): Promise<void>;
+  updateCategory(oldName: string, newName: string): Promise<void>;
 }
 
 // ==========================================================

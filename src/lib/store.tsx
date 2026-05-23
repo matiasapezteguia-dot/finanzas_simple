@@ -22,8 +22,6 @@ export const useFinanzasStore = create<FinanzasStoreContextType>((set, get) => {
   fetchInitialData: async () => {
     try {
       const supabase = createClientSupabaseClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
 
       const supabaseTransactionRepository = new SupabaseTransactionRepository(supabase);
       const supabaseAccountRepository = new SupabaseAccountRepository(supabase);
@@ -31,11 +29,11 @@ export const useFinanzasStore = create<FinanzasStoreContextType>((set, get) => {
 
       // Catálogos auxiliares
       const [accountGroups, accountCategories, movementTypes, movements, accounts] = await Promise.all([
-        supabaseCatalogRepository.fetchGroups(user.id),
-        supabaseCatalogRepository.fetchCategories(user.id),
-        supabaseCatalogRepository.fetchMovementTypes(user.id),
-        supabaseTransactionRepository.fetchAll(user.id),
-        supabaseAccountRepository.fetchAll(user.id)
+        supabaseCatalogRepository.fetchGroups(),
+        supabaseCatalogRepository.fetchCategories(),
+        supabaseCatalogRepository.fetchMovementTypes(),
+        supabaseTransactionRepository.fetchAll(),
+        supabaseAccountRepository.fetchAll()
       ]);
 
       set({
@@ -54,10 +52,8 @@ export const useFinanzasStore = create<FinanzasStoreContextType>((set, get) => {
   addMovement: async (mov) => {
     try {
       const supabase = createClientSupabaseClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
       const supabaseTransactionRepository = new SupabaseTransactionRepository(supabase);
-      await supabaseTransactionRepository.save(mov, user.id);
+      await supabaseTransactionRepository.save(mov);
       await get().fetchInitialData(); // Sincroniza estado local automáticamente
     } catch (err) {
       console.error('Error al delegar inserción de movimiento:', err);
@@ -67,10 +63,8 @@ export const useFinanzasStore = create<FinanzasStoreContextType>((set, get) => {
   deleteMovement: async (id) => {
     try {
       const supabase = createClientSupabaseClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
       const supabaseTransactionRepository = new SupabaseTransactionRepository(supabase);
-      await supabaseTransactionRepository.delete(id, user.id);
+      await supabaseTransactionRepository.delete(id);
       await get().fetchInitialData();
     } catch (err) {
       console.error('Error al delegar eliminación de movimiento:', err);
@@ -81,10 +75,8 @@ export const useFinanzasStore = create<FinanzasStoreContextType>((set, get) => {
   addAccount: async (nuevaCuenta) => {
     try {
       const supabase = createClientSupabaseClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
       const supabaseAccountRepository = new SupabaseAccountRepository(supabase);
-      await supabaseAccountRepository.save(nuevaCuenta, user.id);
+      await supabaseAccountRepository.save(nuevaCuenta);
       await get().fetchInitialData();
     } catch (err) {
       console.error('Error al delegar creación de cuenta:', err);
@@ -94,10 +86,8 @@ export const useFinanzasStore = create<FinanzasStoreContextType>((set, get) => {
   updateAccount: async (cuentaModificada) => {
     try {
       const supabase = createClientSupabaseClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
       const supabaseAccountRepository = new SupabaseAccountRepository(supabase);
-      await supabaseAccountRepository.update(cuentaModificada, user.id);
+      await supabaseAccountRepository.update(cuentaModificada);
       await get().fetchInitialData();
     } catch (err) {
       console.error('Error al delegar actualización de cuenta:', err);
@@ -107,10 +97,8 @@ export const useFinanzasStore = create<FinanzasStoreContextType>((set, get) => {
   deleteAccount: async (id) => {
     try {
       const supabase = createClientSupabaseClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
       const supabaseAccountRepository = new SupabaseAccountRepository(supabase);
-      await supabaseAccountRepository.delete(id, user.id);
+      await supabaseAccountRepository.delete(id);
       await get().fetchInitialData();
     } catch (err) {
       console.error('Error al delegar eliminación de cuenta:', err);
@@ -121,10 +109,8 @@ export const useFinanzasStore = create<FinanzasStoreContextType>((set, get) => {
   addAccountGroup: async (name: string) => {
     try {
       const supabase = createClientSupabaseClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
       const supabaseCatalogRepository = new SupabaseCatalogRepository(supabase);
-      await supabaseCatalogRepository.addGroup(name, user.id);
+      await supabaseCatalogRepository.addGroup(name);
       await get().fetchInitialData();
     } catch (error) {
       console.error(error);
@@ -134,10 +120,8 @@ export const useFinanzasStore = create<FinanzasStoreContextType>((set, get) => {
   updateAccountGroup: async (oldName: string, newName: string) => {
     try {
       const supabase = createClientSupabaseClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
       const supabaseCatalogRepository = new SupabaseCatalogRepository(supabase);
-      await supabaseCatalogRepository.updateGroup(oldName, newName, user.id);
+      await supabaseCatalogRepository.updateGroup(oldName, newName);
       await get().fetchInitialData();
     } catch (error) {
       console.error(error);
@@ -147,10 +131,8 @@ export const useFinanzasStore = create<FinanzasStoreContextType>((set, get) => {
   deleteAccountGroup: async (name: string) => {
     try {
       const supabase = createClientSupabaseClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
       const supabaseCatalogRepository = new SupabaseCatalogRepository(supabase);
-      await supabaseCatalogRepository.deleteGroup(name, user.id);
+      await supabaseCatalogRepository.deleteGroup(name);
       await get().fetchInitialData();
     } catch (error) {
       console.error(error);
@@ -160,10 +142,8 @@ export const useFinanzasStore = create<FinanzasStoreContextType>((set, get) => {
   addAccountCategory: async (name: string) => {
     try {
       const supabase = createClientSupabaseClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
       const supabaseCatalogRepository = new SupabaseCatalogRepository(supabase);
-      await supabaseCatalogRepository.addCategory(name, user.id);
+      await supabaseCatalogRepository.addCategory(name);
       await get().fetchInitialData();
     } catch (error) {
       console.error(error);
@@ -173,10 +153,8 @@ export const useFinanzasStore = create<FinanzasStoreContextType>((set, get) => {
   updateAccountCategory: async (oldName: string, newName: string) => {
     try {
       const supabase = createClientSupabaseClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
       const supabaseCatalogRepository = new SupabaseCatalogRepository(supabase);
-      await supabaseCatalogRepository.updateCategory(oldName, newName, user.id);
+      await supabaseCatalogRepository.updateCategory(oldName, newName);
       await get().fetchInitialData();
     } catch (error) {
       console.error(error);
@@ -186,10 +164,10 @@ export const useFinanzasStore = create<FinanzasStoreContextType>((set, get) => {
   deleteAccountCategory: async (name: string) => {
     try {
       const supabase = createClientSupabaseClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+
+
       const supabaseCatalogRepository = new SupabaseCatalogRepository(supabase);
-      await supabaseCatalogRepository.deleteCategory(name, user.id);
+      await supabaseCatalogRepository.deleteCategory(name);
       await get().fetchInitialData();
     } catch (error) {
       console.error(error);

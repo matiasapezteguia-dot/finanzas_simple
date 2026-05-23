@@ -8,7 +8,7 @@ export class SupabaseCatalogRepository implements ICatalogRepository {
   constructor(supabase: SupabaseClient<Database>) {
     this.supabase = supabase;
   }
-  async fetchGroups(userId: string): Promise<string[]> {
+  async fetchGroups(): Promise<string[]> {
     const { data, error } = await this.supabase
       .from('account_groups')
       .select('name');
@@ -21,7 +21,7 @@ export class SupabaseCatalogRepository implements ICatalogRepository {
     return data.map((group: Pick<Database['public']['Tables']['account_groups']['Row'], 'name'>) => group.name);
   }
 
-  async fetchCategories(userId: string): Promise<AccountCategory[]> {
+  async fetchCategories(): Promise<AccountCategory[]> {
     const { data, error } = await this.supabase
       .from('account_categories')
       .select('id, name'); // CORREGIDO: Eliminado 'created_at' que causaba el quiebre
@@ -34,7 +34,7 @@ export class SupabaseCatalogRepository implements ICatalogRepository {
     return data as Database['public']['Tables']['account_categories']['Row'][];
   }
 
-  async fetchMovementTypes(userId: string): Promise<MovementTypeItem[]> {
+  async fetchMovementTypes(): Promise<MovementTypeItem[]> {
     const { data, error } = await this.supabase
       .from('movement_types')
       .select('id, name, code');
@@ -47,7 +47,7 @@ export class SupabaseCatalogRepository implements ICatalogRepository {
     return data as MovementTypeItem[];
   }
 
-  async addCategory(name: string, userId: string): Promise<void> {
+  async addCategory(name: string): Promise<void> {
     const { error } = await this.supabase
       .from('account_categories')
       .insert([{ name }]);
@@ -58,7 +58,7 @@ export class SupabaseCatalogRepository implements ICatalogRepository {
     }
   }
 
-  async deleteCategory(id: string, userId: string): Promise<void> {
+  async deleteCategory(id: string): Promise<void> {
     const { error } = await this.supabase
       .from('account_categories')
       .delete()
@@ -70,7 +70,7 @@ export class SupabaseCatalogRepository implements ICatalogRepository {
     }
   }
 
-  async addGroup(name: string, userId: string): Promise<void> {
+  async addGroup(name: string): Promise<void> {
     const { error } = await this.supabase
       .from('account_groups')
       .insert([{ name }]);
@@ -81,7 +81,7 @@ export class SupabaseCatalogRepository implements ICatalogRepository {
     }
   }
 
-  async deleteGroup(id: string, userId: string): Promise<void> {
+  async deleteGroup(id: string): Promise<void> {
     const { error } = await this.supabase
       .from('account_groups')
       .delete()
@@ -92,7 +92,7 @@ export class SupabaseCatalogRepository implements ICatalogRepository {
       throw new Error(error.message);
     }
   }
-  async updateGroup(oldName: string, newName: string, userId: string): Promise<void> {
+  async updateGroup(oldName: string, newName: string): Promise<void> {
     const { error } = await this.supabase
       .from('account_groups')
       .update({ name: newName })
@@ -104,7 +104,7 @@ export class SupabaseCatalogRepository implements ICatalogRepository {
     }
   }
 
-  async updateCategory(oldName: string, newName: string, userId: string): Promise<void> {
+  async updateCategory(oldName: string, newName: string): Promise<void> {
     const { error } = await this.supabase
       .from('account_categories')
       .update({ name: newName })

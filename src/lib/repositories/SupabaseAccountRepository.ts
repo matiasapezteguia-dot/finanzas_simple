@@ -21,7 +21,7 @@ export class SupabaseAccountRepository implements IAccountRepository {
     this.supabase = supabase;
   }
 
-  async fetchAll(userId: string): Promise<Account[]> {
+  async fetchAll(): Promise<Account[]> {
     // CORREGIDO: Mapeo de select con los campos reales de la tabla física en PostgreSQL
     const { data, error } = await this.supabase
       .from('accounts')
@@ -33,8 +33,7 @@ export class SupabaseAccountRepository implements IAccountRepository {
         created_at,
         account_groups (name),
         account_categories (name)
-      `)
-      .eq('user_id', userId) as { data: AccountWithRelations[] | null; error: Error | null };
+      `) as { data: AccountWithRelations[] | null; error: Error | null };
 
     if (error) {
       console.error('Error fetching accounts:', error);
@@ -57,7 +56,7 @@ export class SupabaseAccountRepository implements IAccountRepository {
     }));
   }
 
-  async save(account: Omit<Account, 'id' | 'created_at'>, userId: string): Promise<Account> {
+  async save(account: Omit<Account, 'id' | 'created_at'>): Promise<Account> {
     const newId = uuidv4();
     let groupId: string | null = null;
     let categoryId: string | null = null;
@@ -92,7 +91,6 @@ export class SupabaseAccountRepository implements IAccountRepository {
 
     const accountToInsert: AccountInsert = {
       id: newId,
-      user_id: userId,
       name: account.nombre,
       account_group_id: groupId,
       account_category_id: categoryId,
@@ -123,7 +121,7 @@ export class SupabaseAccountRepository implements IAccountRepository {
     };
   }
 
-  async update(account: Account, userId: string): Promise<void> {
+  async update(account: Account): Promise<void> {
     let groupId: string | null = null;
     let categoryId: string | null = null;
 
@@ -166,8 +164,7 @@ export class SupabaseAccountRepository implements IAccountRepository {
     const { error } = await this.supabase
       .from('accounts')
       .update(accountToUpdate)
-      .eq('id', account.id)
-      .eq('user_id', userId);
+      .eq('id', account.id);
 
     if (error) {
       console.error('Error updating account:', error);
@@ -175,12 +172,11 @@ export class SupabaseAccountRepository implements IAccountRepository {
     }
   }
 
-  async delete(id: string, userId: string): Promise<void> {
+  async delete(id: string): Promise<void> {
     const { error } = await this.supabase
       .from('accounts')
       .delete()
-      .eq('id', id)
-      .eq('user_id', userId);
+      .eq('id', id);
 
     if (error) {
       console.error('Error deleting account:', error);

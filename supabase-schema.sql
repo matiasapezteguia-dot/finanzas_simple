@@ -13,9 +13,7 @@ CREATE TABLE public.movement_types (
 );
 ALTER TABLE public.movement_types ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Public movement types are viewable by everyone." ON public.movement_types FOR SELECT USING (true);
-CREATE POLICY "Authenticated users can insert movement types." ON public.movement_types FOR INSERT WITH CHECK (auth.role() = 'authenticated');
-CREATE POLICY "Authenticated users can update movement types." ON public.movement_types FOR UPDATE USING (auth.role() = 'authenticated');
-CREATE POLICY "Authenticated users can delete movement types." ON public.movement_types FOR DELETE USING (auth.role() = 'authenticated');
+
 
 -- Table: public.profiles (to extend Supabase auth.users)
 CREATE TABLE public.profiles (
@@ -40,10 +38,7 @@ CREATE TABLE public.accounts (
     current_balance numeric DEFAULT 0 NOT NULL
 );
 ALTER TABLE public.accounts ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Users can view their own accounts." ON public.accounts FOR SELECT USING (auth.uid() = user_id);
-CREATE POLICY "Users can insert their own accounts." ON public.accounts FOR INSERT WITH CHECK (auth.uid() = user_id);
-CREATE POLICY "Users can update their own accounts." ON public.accounts FOR UPDATE USING (auth.uid() = user_id);
-CREATE POLICY "Users can delete their own accounts." ON public.accounts FOR DELETE USING (auth.uid() = user_id);
+CREATE POLICY "Acceso cuentas" ON public.accounts FOR ALL TO authenticated USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
 
 -- Table: public.categories
 CREATE TABLE public.categories (
@@ -54,10 +49,7 @@ CREATE TABLE public.categories (
     group_name text
 );
 ALTER TABLE public.categories ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Users can view their own categories." ON public.categories FOR SELECT USING (auth.uid() = user_id);
-CREATE POLICY "Users can insert their own categories." ON public.categories FOR INSERT WITH CHECK (auth.uid() = user_id);
-CREATE POLICY "Users can update their own categories." ON public.categories FOR UPDATE USING (auth.uid() = user_id);
-CREATE POLICY "Users can delete their own categories." ON public.categories FOR DELETE USING (auth.uid() = user_id);
+CREATE POLICY "Public categories are viewable by everyone." ON public.categories FOR SELECT USING (true);
 
 -- Table: public.transactions
 CREATE TABLE public.transactions (
@@ -75,10 +67,7 @@ CREATE TABLE public.transactions (
     exchange_rate numeric
 );
 ALTER TABLE public.transactions ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Users can view their own transactions." ON public.transactions FOR SELECT USING (auth.uid() = user_id);
-CREATE POLICY "Users can insert their own transactions." ON public.transactions FOR INSERT WITH CHECK (auth.uid() = user_id);
-CREATE POLICY "Users can update their own transactions." ON public.transactions FOR UPDATE USING (auth.uid() = user_id);
-CREATE POLICY "Users can delete their own transactions." ON public.transactions FOR DELETE USING (auth.uid() = user_id);
+CREATE POLICY "Acceso transacciones" ON public.transactions FOR ALL TO authenticated USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
 
 
 -- Create functions and triggers for balance calculation
