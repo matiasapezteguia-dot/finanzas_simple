@@ -1,13 +1,13 @@
 import { create } from 'zustand';
 
-import { Account, Movement, StoreState, AccountCategory, FinanzasStoreContextType, MonedaType } from '../types/finanzas';
+import { Account, Transaction, StoreState, AccountCategory, FinanzasStoreContextType, MonedaType } from '../types/finanzas';
 import { createClientSupabaseClient } from '../utils/supabase/client';
 import { SupabaseTransactionRepository } from './repositories/SupabaseTransactionRepository';
 import { SupabaseAccountRepository } from './repositories/SupabaseAccountRepository';
 import { SupabaseCatalogRepository } from './repositories/SupabaseCatalogRepository';
 
 const initialState: StoreState = {
-  movements: [],
+  transactions: [],
   accounts: [],
   accountGroups: ['Bancos', 'Efectivo', 'Brókers'],
   accountCategories: [],
@@ -31,7 +31,7 @@ export const useFinanzasStore = create<FinanzasStoreContextType>((set, get) => {
       const supabaseCatalogRepository = new SupabaseCatalogRepository(supabase);
 
       // Catálogos auxiliares
-      const [accountGroups, accountCategories, transactionTypes, movements, accounts] = await Promise.all([
+      const [accountGroups, accountCategories, transactionTypes, transactions, accounts] = await Promise.all([
         supabaseCatalogRepository.fetchGroups(),
         supabaseCatalogRepository.fetchCategories(),
         supabaseCatalogRepository.fetchTransactionTypes(),
@@ -43,7 +43,7 @@ export const useFinanzasStore = create<FinanzasStoreContextType>((set, get) => {
         accountGroups,
         accountCategories,
         transactionTypes,
-        movements,
+        transactions,
         accounts
       });
     } catch (err) {
@@ -52,25 +52,25 @@ export const useFinanzasStore = create<FinanzasStoreContextType>((set, get) => {
   },
 
   // 2. OPERACIONES DE MOVIMIENTOS DESACOPLADAS
-  addMovement: async (mov) => {
+  addTransaction: async (transaction: Omit<Transaction, 'id' | 'created_at'>) => {
     try {
       const supabase = createClientSupabaseClient();
       const supabaseTransactionRepository = new SupabaseTransactionRepository(supabase);
-      await supabaseTransactionRepository.save(mov);
+      await supabaseTransactionRepository.save(transaction);
       await get().fetchInitialData(); // Sincroniza estado local automáticamente
     } catch (err) {
-      console.error('Error al delegar inserción de movimiento:', err);
+      console.error('Error al delegar inserción de transacción:', err);
     }
   },
 
-  deleteMovement: async (id) => {
+  deleteTransaction: async (id: string) => {
     try {
       const supabase = createClientSupabaseClient();
       const supabaseTransactionRepository = new SupabaseTransactionRepository(supabase);
       await supabaseTransactionRepository.delete(id);
       await get().fetchInitialData();
     } catch (err) {
-      console.error('Error al delegar eliminación de movimiento:', err);
+      console.error('Error al delegar eliminación de transacción:', err);
     }
   },
 
@@ -182,19 +182,19 @@ export const useFinanzasStore = create<FinanzasStoreContextType>((set, get) => {
     const cuenta = get().accounts.find((a) => a.id === accountId);
     if (!cuenta) return 0;
     
-    const balance = get().movements
-      .filter((m) => m.cuentaId === accountId)
-      .reduce((acc, m) => {
-        // 1. Buscar el tipo de movimiento en el catálogo usando el ID real de la base de datos
+    const balance = get().transactions
+      .filter((t) => t.cuentaId === accountId)
+      .reduce((acc, t) => {
+        // 1. Buscar el tipo de transacción en el catálogo usando el ID real de la base de datos
         const tipoEncontrado = get().transactionTypes.find(
-          (t) => t.id === m.movement_type_id || t.id === (m as any).typeId
+          (tt) => tt.id === t.transaction_type_id || tt.id === (t as any).typeId
         );
         
         // 2. Obtener el nombre o código para saber qué es
         const nombreTipo = tipoEncontrado?.name?.toLowerCase().trim() || '';
         const codigoTipo = tipoEncontrado?.code?.toLowerCase().trim() || '';
         
-        const montoAbs = Math.abs(m.monto);
+        const montoAbs = Math.abs(t.monto);
 
         // 3. Evaluar con precisión quirúrgica
         if (nombreTipo === 'ingreso' || codigoTipo === 'income') {
@@ -203,7 +203,7 @@ export const useFinanzasStore = create<FinanzasStoreContextType>((set, get) => {
           return acc - montoAbs;
         } else {
           // Salvavidas final por si el monto vino explícitamente negativo
-          return m.monto < 0 ? acc - montoAbs : acc + m.monto;
+          return t.monto < 0 ? acc - montoAbs : acc + t.monto;
         }
       }, cuenta.montoInicial);
 

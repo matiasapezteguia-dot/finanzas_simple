@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
-import { Account, Movement } from "../types/finanzas";
+import { Account, Transaction } from "../types/finanzas";
 import { ArrowUpDown } from 'lucide-react';
 
 interface TransactionsTableProps {
-  movements: Movement[];
+  transactions: Transaction[];
   accounts: Account[];
-  deleteMovement: (id: string) => void;
+  deleteTransaction: (id: string) => void;
   filterAccount: string;
   setFilterAccount: (account: string) => void;
   filterCategory: string;
@@ -21,15 +21,15 @@ interface TransactionsTableProps {
   handleClearFilters: () => void;
   currentPage: number;
   setCurrentPage: (page: number) => void;
-  movementsPerPage: number;
+  transactionsPerPage: number;
   accountCategories: any[]; // Cambiado a any[] para tolerar objetos de Supabase
   accountGroups: string[];
 }
 
 const TransactionsTable: React.FC<TransactionsTableProps> = ({
-  movements,
+  transactions,
   accounts,
-  deleteMovement,
+  deleteTransaction,
   filterAccount,
   setFilterAccount,
   filterCategory,
@@ -45,7 +45,7 @@ const TransactionsTable: React.FC<TransactionsTableProps> = ({
   handleClearFilters,
   currentPage,
   setCurrentPage,
-  movementsPerPage,
+  transactionsPerPage,
   accountCategories,
   accountGroups,
 }) => {
@@ -75,78 +75,78 @@ const TransactionsTable: React.FC<TransactionsTableProps> = ({
     return new Date(d.getFullYear(), d.getMonth(), d.getDate());
   };
 
-  // Mapeador Inteligente de Normalización de Movimientos
-  const normalizedMovements = movements.map((m: any) => {
+  // Mapeador Inteligente de Normalización de Transacciones
+  const normalizedTransactions = transactions.map((t: any) => {
     // 1. Extraer Fecha Real
-    const rawDate = m.transaction_date || m.date || m.fecha;
+    const rawDate = t.transaction_date || t.date || t.fecha;
     
     // 2. Extraer Monto Real
-    const rawAmount = m.amount ?? m.monto ?? 0;
+    const rawAmount = t.amount ?? t.monto ?? 0;
     
     // 3. Extraer Moneda Real
-    const rawCurrency = m.currency || m.moneda || 'ARS';
+    const rawCurrency = t.currency || t.moneda || 'ARS';
 
-    // 4. Extraer Tipo de Movimiento y normalizarlo a código ('income', 'expense', etc.)
+    // 4. Extraer Tipo de Transacción y normalizarlo a código ('income', 'expense', etc.)
     let codeType = 'adjustment';
     let labelType = 'Ajuste';
     
     // Lista dura temporal para mappear UUIDs reales detectados en Navicat
-    if (m.movement_type_id === '0dbd4608-5fdb-4b72-8ec6-3472933213b9' || m.type === 'income' || m.tipo === 'ingreso') {
+    if (t.transaction_type_id === '0dbd4608-5fdb-4b72-8ec6-3472933213b9' || t.type === 'income' || t.tipo === 'ingreso') {
       codeType = 'income';
       labelType = 'Ingreso';
-    } else if (m.movement_type_id === 'ed5adc36-3663-41a0-91a4-677595113d98' || m.type === 'expense' || m.tipo === 'egreso') {
+    } else if (t.transaction_type_id === 'ed5adc36-3663-41a0-91a4-677595113d98' || t.type === 'expense' || t.tipo === 'egreso') {
       codeType = 'expense';
       labelType = 'Egreso';
-    } else if (m.movement_type_id === 'bcf8578e-a9fc-42df-8001-5451e0d654d2' || m.type === 'transfer' || m.tipo === 'transferencia') {
+    } else if (t.transaction_type_id === 'bcf8578e-a9fc-42df-8001-5451e0d654d2' || t.type === 'transfer' || t.tipo === 'transferencia') {
       codeType = 'transfer';
       labelType = 'Transferencia';
-    } else if (m.movement_type_id === 'f4c0770f-0a55-4fbb-a8f6-0db4ef3fa5bb' || m.type === 'adjustment' || m.tipo === 'ajuste') {
+    } else if (t.transaction_type_id === 'f4c0770f-0a55-4fbb-a8f6-0db4ef3fa5bb' || t.type === 'adjustment' || t.tipo === 'ajuste') {
       codeType = 'adjustment';
       labelType = 'Ajuste';
     }
 
     // 5. Intentar resolver las cuentas del sistema vinculadas (si aplican)
-    const activeAccountId = m.account_id || m.cuentaId || m.sourceAccountId || m.targetAccountId;
+    const activeAccountId = t.account_id || t.cuentaId || t.sourceAccountId || t.targetAccountId;
     const systemAccount = accounts.find(acc => acc.id === activeAccountId);
 
     return {
-      id: m.id,
+      id: t.id,
       date: rawDate,
-      description: m.description || m.descripcion || 'Sin descripción',
+      description: t.description || t.descripcion || 'Sin descripción',
       amount: Number(rawAmount),
       currency: rawCurrency,
       typeCode: codeType,
       typeLabel: labelType,
       accountId: activeAccountId,
       accountName: systemAccount?.nombre || '',
-      category: systemAccount?.categoria || m.categoria || '',
+      category: systemAccount?.categoria || t.categoria || '',
       group: systemAccount?.grupo || '',
-      raw: m // Guardamos la referencia por las dudas
+      raw: t // Guardamos la referencia por las dudas
     };
   });
 
   // Lógica de filtrado utilizando la lista normalizada segura
-  const filteredAndSortedMovements = normalizedMovements
-    .filter(m => {
-      const movementDate = getLocalMidnight(m.date);
+  const filteredAndSortedTransactions = normalizedTransactions
+    .filter(t => {
+      const transactionDate = getLocalMidnight(t.date);
       const start = filterStartDate ? createLocalDate(filterStartDate) : null;
       const end = filterEndDate ? createLocalDate(filterEndDate) : null;
       if (end) end.setHours(23, 59, 59, 999);
 
       // Filtro por cuenta
-      const coincideCuenta = filterAccount === 'all' || m.accountId === filterAccount;
+      const coincideCuenta = filterAccount === 'all' || t.accountId === filterAccount;
 
       // Filtro por categoría
-      const coincideCategoria = filterCategory === 'all' || m.category === filterCategory;
+      const coincideCategoria = filterCategory === 'all' || t.category === filterCategory;
 
-      // Filtro por tipo de movimiento
-      const coincideTipo = filterType === 'all' || m.typeCode === filterType;
+      // Filtro por tipo de transacción
+      const coincideTipo = filterType === 'all' || t.typeCode === filterType;
 
       // Filtro por grupo
-      const coincideGrupo = filterGroup === 'all' || m.group === filterGroup;
+      const coincideGrupo = filterGroup === 'all' || t.group === filterGroup;
 
       // Filtro por rango de fechas
-      const coincideFecha = (!start || movementDate >= start) && (!end || movementDate <= end);
+      const coincideFecha = (!start || transactionDate >= start) && (!end || transactionDate <= end);
 
       return coincideCuenta && coincideCategoria && coincideTipo && coincideGrupo && coincideFecha;
     })
@@ -169,17 +169,17 @@ const TransactionsTable: React.FC<TransactionsTableProps> = ({
     });
 
   // Paginación
-  const indexOfLastMovement = currentPage * movementsPerPage;
-  const indexOfFirstMovement = indexOfLastMovement - movementsPerPage;
-  const currentMovements = filteredAndSortedMovements.slice(indexOfFirstMovement, indexOfLastMovement);
-  const totalPages = Math.ceil(filteredAndSortedMovements.length / movementsPerPage);
+  const indexOfLastTransaction = currentPage * transactionsPerPage;
+  const indexOfFirstTransaction = indexOfLastTransaction - transactionsPerPage;
+  const currentTransactions = filteredAndSortedTransactions.slice(indexOfFirstTransaction, indexOfLastTransaction);
+  const totalPages = Math.ceil(filteredAndSortedTransactions.length / transactionsPerPage);
 
   const paginate = (pageNumber: number) => setCurrentPage(pageNumber);
 
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
       <div className="p-6 border-b border-slate-200 flex justify-between items-center">
-        <h2 className="text-xl font-bold text-slate-900">Últimos Movimientos</h2>
+        <h2 className="text-xl font-bold text-slate-900">Últimas Transacciones</h2>
       </div>
 
       <div className="overflow-x-auto">
@@ -296,59 +296,59 @@ const TransactionsTable: React.FC<TransactionsTableProps> = ({
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 text-sm text-slate-700">
-            {currentMovements.length === 0 ? (
+            {currentTransactions.length === 0 ? (
               <tr>
-                <td colSpan={7} className="p-8 text-center text-slate-400">No hay movimientos registrados con los filtros actuales.</td>
+                <td colSpan={7} className="p-8 text-center text-slate-400">No hay transacciones registradas con los filtros actuales.</td>
               </tr>
             ) : (
-              currentMovements.map((m) => {
+              currentTransactions.map((t) => {
                 return (
-                  <tr key={m.id} className="hover:bg-slate-50 transition">
+                  <tr key={t.id} className="hover:bg-slate-50 transition">
                     {/* Render de Fecha robusto */}
                     <td className="p-4">
-                      {m.date ? new Date(m.date).toLocaleDateString('es-AR', { timeZone: 'UTC' }) : 'Invalid Date'}
+                      {t.date ? new Date(t.date).toLocaleDateString('es-AR', { timeZone: 'UTC' }) : 'Invalid Date'}
                     </td>
-                    <td className="p-4 font-medium text-slate-900">{m.description}</td>
+                    <td className="p-4 font-medium text-slate-900">{t.description}</td>
                     
                     {/* Cuenta mapeada por ID relacional */}
                     <td className="p-4 text-slate-600 font-medium">
-                      {m.accountName || 'Entidad Externa / Ajuste'}
+                      {t.accountName || 'Entidad Externa / Ajuste'}
                     </td>
                     
-                    {/* Badge del tipo de movimiento */}
+                    {/* Badge del tipo de transacción */}
                     <td className="p-4 text-center">
                       <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
-                        m.typeCode === 'income' ? 'bg-green-100 text-green-700' : 
-                        m.typeCode === 'expense' ? 'bg-red-100 text-red-700' : 
-                        m.typeCode === 'transfer' ? 'bg-blue-100 text-blue-700' : 
+                        t.typeCode === 'income' ? 'bg-green-100 text-green-700' : 
+                        t.typeCode === 'expense' ? 'bg-red-100 text-red-700' : 
+                        t.typeCode === 'transfer' ? 'bg-blue-100 text-blue-700' : 
                         'bg-purple-100 text-purple-700'
                       }`}>
-                        {m.typeLabel}
+                        {t.typeLabel}
                       </span>
                     </td>
                     
                     {/* Badge de Moneda */}
                     <td className="p-4 text-center">
-                      <span className={`px-2 py-1 rounded-md text-xs font-bold ${m.currency === 'ARS' ? 'bg-blue-50 text-blue-600' : 'bg-emerald-50 text-emerald-600'}`}>
-                        {m.currency}
+                      <span className={`px-2 py-1 rounded-md text-xs font-bold ${t.currency === 'ARS' ? 'bg-blue-50 text-blue-600' : 'bg-emerald-50 text-emerald-600'}`}>
+                        {t.currency}
                       </span>
                     </td>
                     
                     {/* Impacto de Monto numérico formateado */}
                     <td className={`p-4 text-right font-bold ${
-                      m.typeCode === 'income' ? 'text-green-600' : 
-                      m.typeCode === 'expense' ? 'text-red-600' : 
+                      t.typeCode === 'income' ? 'text-green-600' : 
+                      t.typeCode === 'expense' ? 'text-red-600' : 
                       'text-blue-600'
                     }`}>
-                      {m.typeCode === 'income' ? '+ ' : m.typeCode === 'expense' ? '- ' : ''}
-                      $ {m.amount.toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      {t.typeCode === 'income' ? '+ ' : t.typeCode === 'expense' ? '- ' : ''}
+                      $ {t.amount.toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </td>
                     
                     <td className="p-4 text-center">
                       <button
-                        onClick={() => deleteMovement(m.id)}
+                        onClick={() => deleteTransaction(t.id)}
                         className="text-red-600 hover:text-red-900 transition transform hover:scale-110"
-                        title="Anular Movimiento"
+                        title="Anular Transacción"
                       >
                         🗑️
                       </button>
@@ -361,7 +361,7 @@ const TransactionsTable: React.FC<TransactionsTableProps> = ({
         </table>
 
         {/* Controles de Paginación */}
-        {filteredAndSortedMovements.length > movementsPerPage && (
+        {filteredAndSortedTransactions.length > transactionsPerPage && (
           <div className="p-4 flex justify-center items-center space-x-2 border-t border-slate-200">
             <button
               onClick={() => paginate(currentPage - 1)}

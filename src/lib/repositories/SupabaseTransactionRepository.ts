@@ -1,5 +1,5 @@
-import { ITransactionRepository, Movement, MovementCodeType, MonedaType } from '../../types/finanzas';
-import { Database } from '../../../supabase_types';
+import { ITransactionRepository, Transaction, MovementCodeType, MonedaType } from '../../types/finanzas';
+import { Database } from '../../types/supabase_types'; 
 import { SupabaseClient } from '@supabase/supabase-js';
 
 type SupabaseTransactionRow = Database['public']['Tables']['transactions']['Row'];
@@ -21,27 +21,27 @@ export class SupabaseTransactionRepository implements ITransactionRepository {
   }
 
   private toSupabase(
-    movement: Omit<Movement, 'id' | 'created_at' | 'movement_type_code'>,
+    transaction: Omit<Transaction, 'id' | 'created_at' | 'transaction_type_code'>,
     relatedTransactionId?: string
   ): Omit<SupabaseTransactionInsert, 'id' | 'created_at'> {
     return {
-      account_id: movement.cuentaId,
-      movement_type_id: movement.movement_type_id,
+      account_id: transaction.cuentaId,
+      transaction_type_id: transaction.transaction_type_id, // ¡UNIFICADO CON LA DB REAL!
       // BLINDAJE: Si no es un UUID válido (ej: texto libre como "asd"), se inserta null
-      category_id: this.isUUID(movement.categoria) ? movement.categoria : null,
-      amount: movement.monto,
-      description: movement.descripcion,
-      transaction_date: movement.fecha,
-      currency: movement.moneda,
+      category_id: this.isUUID(transaction.categoria) ? transaction.categoria : null,
+      amount: transaction.monto,
+      description: transaction.descripcion,
+      transaction_date: transaction.fecha,
+      currency: transaction.moneda,
       related_transaction_id: relatedTransactionId,
     };
   }
 
-  private fromSupabase(supabaseTransaction: SupabaseTransactionRow): Movement {
+  private fromSupabase(supabaseTransaction: SupabaseTransactionRow): Transaction {
     return {
       id: supabaseTransaction.id!,
       cuentaId: supabaseTransaction.account_id!,
-      movement_type_id: supabaseTransaction.movement_type_id!,
+      transaction_type_id: supabaseTransaction.transaction_type_id!, // ¡UNIFICADO CON LA DB REAL!
       categoria: supabaseTransaction.category_id, // Mapeado desde el campo real
       monto: supabaseTransaction.amount,
       descripcion: supabaseTransaction.description,
@@ -51,7 +51,7 @@ export class SupabaseTransactionRepository implements ITransactionRepository {
     };
   }
 
-  async fetchAll(): Promise<Movement[]> {
+  async fetchAll(): Promise<Transaction[]> {
     const { data, error } = await this.supabase
       .from(this.TABLE_NAME)
       .select('*');
@@ -64,15 +64,15 @@ export class SupabaseTransactionRepository implements ITransactionRepository {
     return (data as SupabaseTransactionRow[]).map(this.fromSupabase.bind(this));
   }
 
-  async save(movement: Omit<Movement, 'id' | 'created_at' | 'movement_type_code'>): Promise<void> {
-    const movementTypeCode: MovementCodeType | undefined = (movement as Movement).movement_type_code as MovementCodeType;
+  async save(transaction: Omit<Transaction, 'id' | 'created_at' | 'transaction_type_code'>): Promise<void> {
+    const transactionTypeCode: MovementCodeType | undefined = (transaction as Transaction).transaction_type_code as MovementCodeType;
 
-    if (movementTypeCode === 'transfer' && movement.sourceAccountId && movement.targetAccountId) {
-      const { cuentaId, monto, ...rest } = movement;
+    if (transactionTypeCode === 'transfer' && transaction.sourceAccountId && transaction.targetAccountId) {
+      const { cuentaId, monto, ...rest } = transaction;
 
       const sourceTransactionData = this.toSupabase({
         ...rest,
-        cuentaId: movement.sourceAccountId,
+        cuentaId: transaction.sourceAccountId,
         monto: -Math.abs(monto),
       });
 
@@ -94,7 +94,7 @@ export class SupabaseTransactionRepository implements ITransactionRepository {
       const targetTransactionData = this.toSupabase(
         {
           ...rest,
-          cuentaId: movement.targetAccountId,
+          cuentaId: transaction.targetAccountId,
           monto: Math.abs(monto),
         },
         relatedTransactionId
@@ -119,7 +119,7 @@ export class SupabaseTransactionRepository implements ITransactionRepository {
       }
 
     } else {
-      const supabaseData = this.toSupabase(movement);
+      const supabaseData = this.toSupabase(transaction);
       const { error } = await this.supabase
         .from(this.TABLE_NAME)
         .insert(supabaseData as SupabaseTransactionInsert);
@@ -141,4 +141,3 @@ export class SupabaseTransactionRepository implements ITransactionRepository {
     }
   }
 }
-

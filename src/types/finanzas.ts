@@ -37,11 +37,11 @@ export interface Account {
   created_at?: string;
 }
 
-export interface Movement {
+export interface Transaction {
   id: string;
   cuentaId: string;
-  movement_type_id: string;
-  movement_type_code?: string;
+  transaction_type_id: string;
+  transaction_type_code?: string;
   typeId?: string;
   categoria: string | null;
   monto: number;             // Signado internamente si es relacional
@@ -66,8 +66,8 @@ export interface Profile {
 // ==========================================================
 
 export interface ITransactionRepository {
-  fetchAll(): Promise<Movement[]>;
-  save(movement: Omit<Movement, 'id' | 'created_at' | 'movement_type_code'>): Promise<void>;
+  fetchAll(): Promise<Transaction[]>;
+  save(transaction: Omit<Transaction, 'id' | 'created_at' | 'transaction_type_code'>): Promise<void>;
   delete(id: string): Promise<void>;
 }
 
@@ -95,7 +95,7 @@ export interface ICatalogRepository {
 // ==========================================================
 
 export interface StoreState {
-  movements: Movement[];
+  transactions: Transaction[];
   accounts: Account[];
   accountGroups: string[];
   accountCategories: AccountCategory[];
@@ -105,8 +105,8 @@ export interface StoreState {
 
 export interface FinanzasStoreContextType extends StoreState {
   fetchInitialData: () => Promise<void>; // Asegurado método de sincronización
-  addMovement: (movement: Omit<Movement, 'id' | 'created_at'>) => Promise<void>;
-  deleteMovement: (id: string) => Promise<void>;
+  addTransaction: (transaction: Omit<Transaction, 'id' | 'created_at'>) => Promise<void>;
+  deleteTransaction: (id: string) => Promise<void>;
   getAccountBalance: (accountId: string) => number;
   getTotalARS: () => number;
   getAvailableARS: () => number;

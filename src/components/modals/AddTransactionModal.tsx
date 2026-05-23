@@ -9,7 +9,6 @@ interface AddTransactionModalProps {
 }
 
 export default function AddTransactionModal({ isOpen, onClose }: AddTransactionModalProps) {
-  // 1. Desestructuramos usando el nuevo idioma unificado del store (addTransaction y transactionTypes)
   const { addTransaction, accounts, transactionTypes } = useFinanzasStore();
 
   const [selectedTransactionTypeId, setSelectedTransactionTypeId] = useState<string>('');
@@ -191,7 +190,7 @@ export default function AddTransactionModal({ isOpen, onClose }: AddTransactionM
                 className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white focus:outline-none focus:border-slate-900 text-sm"
               >
                 {transactionTypes.map((mt) => (
-                  <option key={mt.id} value={mt.id}>{mt.name || mt.nombre}</option>
+                  <option key={mt.id} value={mt.id}>{mt.name}</option>
                 ))}
               </select>
             </div>

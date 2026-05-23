@@ -16,9 +16,9 @@ export default function Dashboard() {
   const supabase = createClientSupabaseClient();
   
   const { 
-    movements, 
+    transactions, 
     accounts, 
-    deleteMovement, 
+    deleteTransaction, 
     getAccountBalance, 
     accountCategories, 
     accountGroups, 
@@ -42,7 +42,7 @@ export default function Dashboard() {
   }, []);
 
   // Filtros de la tabla
-  const [isMovementModalOpen, setIsMovementModalOpen] = useState(false);
+  const [isTransactionModalOpen, setIsTransactionModalOpen] = useState(false);
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
   const [filterAccount, setFilterAccount] = useState<string>("all");
   const [filterCategory, setFilterCategory] = useState<string>("all");
@@ -61,7 +61,7 @@ export default function Dashboard() {
   };
 
   const [currentPage, setCurrentPage] = useState(1);
-  const movementsPerPage = 10;
+  const transactionsPerPage = 10;
 
   const openAccountDetailModal = (accountId: string) => {
     setSelectedAccountId(accountId);
@@ -92,7 +92,7 @@ export default function Dashboard() {
             Cerrar Sesión
           </button>
           <button 
-            onClick={() => setIsMovementModalOpen(true)}
+            onClick={() => setIsTransactionModalOpen(true)}
             className="bg-slate-900 text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-slate-800 transition"
           >
             + Nueva entrada
@@ -109,9 +109,9 @@ export default function Dashboard() {
       />
 
       <TransactionsTable
-        movements={movements}
+        transactions={transactions}
         accounts={accounts}
-        deleteMovement={deleteMovement}
+        deleteTransaction={deleteTransaction}
         filterAccount={filterAccount}
         setFilterAccount={setFilterAccount}
         filterCategory={filterCategory}
@@ -125,7 +125,7 @@ export default function Dashboard() {
         handleClearFilters={handleClearFilters}
         currentPage={currentPage}
         setCurrentPage={setCurrentPage}
-        movementsPerPage={movementsPerPage}
+        transactionsPerPage={transactionsPerPage}
         accountCategories={accountCategories}
         filterGroup={filterGroup}
         setFilterGroup={setFilterGroup}
@@ -133,8 +133,8 @@ export default function Dashboard() {
       />
 
       <AddTransactionModal 
-        isOpen={isMovementModalOpen} 
-        onClose={() => setIsMovementModalOpen(false)} 
+        isOpen={isTransactionModalOpen} 
+        onClose={() => setIsTransactionModalOpen(false)} 
       />
 
       {selectedAccountId && (

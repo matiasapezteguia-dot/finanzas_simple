@@ -5,7 +5,7 @@ const DashboardKPIs: React.FC = () => {
   // 1. Extraemos los nuevos métodos limpios del store optimizado
   const { 
     accounts, 
-    movements, 
+    transactions,
     getTotalARS, 
     getTotalUSD, 
     getAvailableARS, 

@@ -40,7 +40,7 @@ export class SupabaseCatalogRepository implements ICatalogRepository {
       .select('id, name, code');
 
     if (error) {
-      console.error('Error fetching movement types:', error);
+      console.error('Error fetching transaction types:', error);
       throw new Error(error.message);
     }
 
