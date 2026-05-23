@@ -118,9 +118,9 @@ const TransactionsTable: React.FC<TransactionsTableProps> = ({
       typeCode: codeType,
       typeLabel: labelType,
       accountId: activeAccountId,
-      accountName: systemAccount?.name || systemAccount?.nombre || '',
-      category: systemAccount?.account_category_id || systemAccount?.categoryId || m.categoria || '',
-      group: systemAccount?.account_group_id || systemAccount?.groupId || '',
+      accountName: systemAccount?.nombre || '',
+      category: systemAccount?.categoria || m.categoria || '',
+      group: systemAccount?.grupo || '',
       raw: m // Guardamos la referencia por las dudas
     };
   });
@@ -194,7 +194,7 @@ const TransactionsTable: React.FC<TransactionsTableProps> = ({
             >
               <option value="all">Todas las Cuentas</option>
               {accounts.map(account => (
-                <option key={account.id} value={account.id}>{account.name || account.nombre}</option>
+                <option key={account.id} value={account.id}>{account.nombre}</option>
               ))}
             </select>
           </div>
