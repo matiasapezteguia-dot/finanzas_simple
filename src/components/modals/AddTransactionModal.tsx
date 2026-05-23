@@ -9,10 +9,11 @@ interface AddTransactionModalProps {
 }
 
 export default function AddTransactionModal({ isOpen, onClose }: AddTransactionModalProps) {
-  const { addMovement, accounts, transactionTypes } = useFinanzasStore();
+  // 1. Desestructuramos usando el nuevo idioma unificado del store (addTransaction y transactionTypes)
+  const { addTransaction, accounts, transactionTypes } = useFinanzasStore();
 
-  const [selectedMovementTypeId, setSelectedMovementTypeId] = useState<string>('');
-  const [selectedMovementTypeCode, setSelectedMovementTypeCode] = useState<string>('income');
+  const [selectedTransactionTypeId, setSelectedTransactionTypeId] = useState<string>('');
+  const [selectedTransactionTypeCode, setSelectedTransactionTypeCode] = useState<string>('income');
 
   const [description, setDescription] = useState("");
   const [amount, setAmount] = useState("");
@@ -26,31 +27,32 @@ export default function AddTransactionModal({ isOpen, onClose }: AddTransactionM
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [errorMessage, setErrorMessage] = useState("");
 
-  // Setea el tipo por defecto UNA SOLA VEZ cuando llegan los movementTypes, previniendo loops asincrónicos
+  // Cortocircuito de seguridad: si no cargaron los tipos todavía, no ejecutamos lógica para evitar bucles
   useEffect(() => {
-    if (transactionTypes && transactionTypes.length > 0 && !selectedMovementTypeId) {
+    if (transactionTypes && transactionTypes.length > 0 && !selectedTransactionTypeId) {
       const defaultIncomeType = transactionTypes.find(mt => mt.code === 'income');
       if (defaultIncomeType) {
-        setSelectedMovementTypeId(defaultIncomeType.id);
-        setSelectedMovementTypeCode('income');
+        setSelectedTransactionTypeId(defaultIncomeType.id);
+        setSelectedTransactionTypeCode('income');
       } else {
-        setSelectedMovementTypeId(transactionTypes[0].id);
-        setSelectedMovementTypeCode(transactionTypes[0].code || '');
+        setSelectedTransactionTypeId(transactionTypes[0].id);
+        setSelectedTransactionTypeCode(transactionTypes[0].code || '');
       }
     }
-  }, [transactionTypes]); // Se removió selectedMovementTypeId de las dependencias para matar el bucle
+  }, [transactionTypes]); 
 
-  const isSelectOrigenDisabled = selectedMovementTypeCode === 'income' || selectedMovementTypeCode === 'adjustment';
-  const isTextOrigenDisabled = selectedMovementTypeCode === 'expense' || selectedMovementTypeCode === 'transfer' || selectedMovementTypeCode === 'adjustment';
+  // Controladores visuales de los campos
+  const isSelectOrigenDisabled = selectedTransactionTypeCode === 'income' || selectedTransactionTypeCode === 'adjustment';
+  const isTextOrigenDisabled = selectedTransactionTypeCode === 'expense' || selectedTransactionTypeCode === 'transfer' || selectedTransactionTypeCode === 'adjustment';
 
-  const isSelectDestinoDisabled = selectedMovementTypeCode === 'expense' || selectedMovementTypeCode === 'adjustment';
-  const isTextDestinoDisabled = selectedMovementTypeCode === 'income' || selectedMovementTypeCode === 'transfer' || selectedMovementTypeCode === 'adjustment';
+  const isSelectDestinoDisabled = selectedTransactionTypeCode === 'expense' || selectedTransactionTypeCode === 'adjustment';
+  const isTextDestinoDisabled = selectedTransactionTypeCode === 'income' || selectedTransactionTypeCode === 'transfer' || selectedTransactionTypeCode === 'adjustment';
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage("");
 
-    if (!selectedMovementTypeId) {
+    if (!selectedTransactionTypeId) {
       setErrorMessage("Por favor, seleccioná un tipo de movimiento válido.");
       return;
     }
@@ -66,7 +68,7 @@ export default function AddTransactionModal({ isOpen, onClose }: AddTransactionM
     let finalCategory: string | null = null;
     let extraInfo = "";
 
-    if (selectedMovementTypeCode === 'income') {
+    if (selectedTransactionTypeCode === 'income') {
       if (!targetAccountId) {
         setErrorMessage("Debés seleccionar una cuenta destino del sistema.");
         return;
@@ -76,7 +78,7 @@ export default function AddTransactionModal({ isOpen, onClose }: AddTransactionM
       finalMovementAccountId = targetAccountId;
       if (sourceAccountText) extraInfo = ` (Origen Externo: ${sourceAccountText})`;
 
-    } else if (selectedMovementTypeCode === 'expense') {
+    } else if (selectedTransactionTypeCode === 'expense') {
       if (!sourceAccountId) {
         setErrorMessage("Debés seleccionar una cuenta origen del sistema.");
         return;
@@ -86,7 +88,7 @@ export default function AddTransactionModal({ isOpen, onClose }: AddTransactionM
       finalMovementAccountId = sourceAccountId;
       if (targetAccountText) extraInfo = ` (Destino Externo: ${targetAccountText})`;
 
-    } else if (selectedMovementTypeCode === 'transfer') {
+    } else if (selectedTransactionTypeCode === 'transfer') {
       if (!sourceAccountId || !targetAccountId) {
         setErrorMessage("Para transferencias debés seleccionar origen y destino del sistema.");
         return;
@@ -99,7 +101,7 @@ export default function AddTransactionModal({ isOpen, onClose }: AddTransactionM
       finalTarget = targetAccountId;
       finalMovementAccountId = sourceAccountId;
 
-    } else if (selectedMovementTypeCode === 'adjustment') {
+    } else if (selectedTransactionTypeCode === 'adjustment') {
       const referenceAccount = targetAccountId || sourceAccountId;
       if (!referenceAccount) {
         setErrorMessage("Seleccioná al menos una cuenta del sistema para aplicar el ajuste.");
@@ -120,11 +122,12 @@ export default function AddTransactionModal({ isOpen, onClose }: AddTransactionM
       finalCategory = systemAccount.categoria;
     }
 
-    addMovement({
+    // 2. Enviamos el objeto mapeado al nuevo esquema sin user_id y con las propiedades correctas
+    addTransaction({
       descripcion: description + extraInfo,
       monto: parseFloat(amount),
       moneda: currency,
-      movement_type_id: selectedMovementTypeId,
+      transaction_type_id: selectedTransactionTypeId,
       cuentaId: finalMovementAccountId,
       categoria: finalCategory,
       sourceAccountId: finalSource,
@@ -132,6 +135,7 @@ export default function AddTransactionModal({ isOpen, onClose }: AddTransactionM
       fecha: date,
     });
 
+    // Reset de estados
     setDescription("");
     setAmount("");
     setCurrency("ARS");
@@ -144,6 +148,8 @@ export default function AddTransactionModal({ isOpen, onClose }: AddTransactionM
   };
 
   if (!isOpen) return null;
+  // Freno de mano asincrónico por si el store sigue cargando los tipos desde Supabase
+  if (!transactionTypes || transactionTypes.length === 0) return null;
 
   return (
     <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
@@ -170,12 +176,12 @@ export default function AddTransactionModal({ isOpen, onClose }: AddTransactionM
             <div>
               <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Tipo</label>
               <select 
-                value={selectedMovementTypeId}
+                value={selectedTransactionTypeId}
                 onChange={(e) => {
                   const targetId = e.target.value;
                   const foundType = transactionTypes.find(mt => mt.id === targetId);
-                  setSelectedMovementTypeId(targetId);
-                  setSelectedMovementTypeCode(foundType ? (foundType.code || '') : '');
+                  setSelectedTransactionTypeId(targetId);
+                  setSelectedTransactionTypeCode(foundType ? (foundType.code || '') : '');
                   
                   setSourceAccountId("");
                   setTargetAccountId("");
@@ -184,8 +190,8 @@ export default function AddTransactionModal({ isOpen, onClose }: AddTransactionM
                 }}
                 className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white focus:outline-none focus:border-slate-900 text-sm"
               >
-                {(transactionTypes || []).map((mt) => (
-                  <option key={mt.id} value={mt.id}>{mt.name}</option>
+                {transactionTypes.map((mt) => (
+                  <option key={mt.id} value={mt.id}>{mt.name || mt.nombre}</option>
                 ))}
               </select>
             </div>
@@ -247,8 +253,7 @@ export default function AddTransactionModal({ isOpen, onClose }: AddTransactionM
                 disabled={isTextOrigenDisabled}
                 required={!isTextOrigenDisabled}
                 className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:border-slate-900 text-sm disabled:bg-slate-100 disabled:placeholder-slate-300"
-              >
-              </input>
+              />
             </div>
 
             <div>
@@ -273,8 +278,7 @@ export default function AddTransactionModal({ isOpen, onClose }: AddTransactionM
                 disabled={isTextDestinoDisabled}
                 required={!isTextDestinoDisabled}
                 className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:border-slate-900 text-sm disabled:bg-slate-100 disabled:placeholder-slate-300"
-              >
-              </input>
+              />
             </div>
           </div>
 
