@@ -27,19 +27,23 @@ export default function Dashboard() {
     getTotalUSD 
   } = useFinanzasStore();
 
+  // 1. Detector de usuario en consola
   useEffect(() => {
     const checkUser = async () => {
-      const supabase = createClientSupabaseClient();
       const { data: { user } } = await supabase.auth.getUser();
       console.log("🚨 DETECTOR EN UI - USUARIO ACTUAL:", user);
     };
     checkUser();
-  }, []);
+  }, [supabase]);
 
+  // 2. CORREGIDO: Carga de datos asincrónica estricta antes de activar la UI
   useEffect(() => {
-    fetchInitialData();
-    setMounted(true);
-  }, []);
+    const initApp = async () => {
+      await fetchInitialData(); // Esperamos a que terminen los repositorios de Supabase
+      setMounted(true);        // Recién ahí le damos luz verde a React
+    };
+    initApp();
+  }, [fetchInitialData]);
 
   // Filtros de la tabla
   const [isTransactionModalOpen, setIsTransactionModalOpen] = useState(false);
@@ -71,7 +75,10 @@ export default function Dashboard() {
     setSelectedAccountId(null);
   };
 
-  if (!mounted) return null;
+  // Salvavidas de hidratación: si no cargaron los datos reales en el cliente, no dibujamos nada
+  if (!mounted) {
+    return <div className="min-h-screen bg-slate-50 w-full flex items-center justify-center text-slate-400 text-sm">Cargando panel financiero...</div>;
+  }
 
   return (
     <div className="p-8 w-full mx-auto space-y-6 bg-slate-50 min-h-screen">
@@ -84,8 +91,16 @@ export default function Dashboard() {
         <div className="flex items-center space-x-4">
           <button 
             onClick={async () => {
-              await supabase.auth.signOut();
-              router.push("/login");
+              try {
+                await supabase.auth.signOut();
+                localStorage.clear(); // Limpieza preventiva para que no se tilde el token viejo
+                sessionStorage.clear();
+                router.push("/login");
+                router.refresh();     // Obligamos a Next.js a resetear el mapa de rutas
+              } catch (err) {
+                console.error("Error al cerrar sesión:", err);
+                window.location.href = "/login"; // Hard redirect si falla el router
+              }
             }}
             className="bg-red-500 text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-red-600 transition"
           >
